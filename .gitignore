@@ -1,0 +1,34 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+
+# ROS2 test stubs (auto-generated, not actual tests)
+test/
+
+# ML model weights (large binary files)
+*.pt
+*.pth
+*.onnx
+
+# ROS2 workspace build artifacts
+build/
+install/
+log/
+
+# Python packaging
+*.egg-info/
+.eggs/
+dist/
+
+# ROS2 ament resource marker (not source code)
+resource/
+
+# Local AI debug notes
+CLAUDE.md
+
+# Editor / OS
+.DS_Store
+*.swp
+*.swo
+.vscode/
