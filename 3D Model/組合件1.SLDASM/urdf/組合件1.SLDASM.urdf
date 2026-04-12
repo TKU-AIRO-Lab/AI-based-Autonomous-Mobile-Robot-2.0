@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- This URDF was automatically created by SolidWorks to URDF Exporter! Originally created by Stephen Brawner (brawner@gmail.com) 
+     Commit Version: 1.6.0-4-g7f85cfe  Build Version: 1.6.7995.38578
+     For more information, please see http://wiki.ros.org/sw_urdf_exporter -->
+<robot
+  name="組合件1.SLDASM">
+  <link
+    name="base_link">
+    <inertial>
+      <origin
+        xyz="-0.0157049775893594 -1.07573699920716 0.00901006331799033"
+        rpy="0 0 0" />
+      <mass
+        value="4.68377084270823" />
+      <inertia
+        ixx="0.0070998538723502"
+        ixy="2.47010899364694E-06"
+        ixz="-3.91237973608519E-05"
+        iyy="0.0110826789999964"
+        iyz="-4.43733340319763E-08"
+        izz="0.0121317469183278" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://組合件1.SLDASM/meshes/base_link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://組合件1.SLDASM/meshes/base_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <link
+    name="left_wheel_Link">
+    <inertial>
+      <origin
+        xyz="0.00978424359831997 8.86679301231874E-08 -1.51592238159526E-06"
+        rpy="0 0 0" />
+      <mass
+        value="0.0298805023519677" />
+      <inertia
+        ixx="2.12913595127045E-05"
+        ixy="5.25622601393167E-09"
+        ixz="4.60517243236408E-12"
+        iyy="1.14282996535033E-05"
+        iyz="-4.30506415727038E-10"
+        izz="1.14403527575E-05" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://組合件1.SLDASM/meshes/left_wheel_Link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.603921568627451 0.647058823529412 0.686274509803922 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://組合件1.SLDASM/meshes/left_wheel_Link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="left_wheel_joint"
+    type="continuous">
+    <origin
+      xyz="-0.0363449839531719 -1.0098106835643 -0.0894530588923699"
+      rpy="1.5707963267949 0 -1.5707963267949" />
+    <parent
+      link="base_link" />
+    <child
+      link="left_wheel_Link" />
+    <axis
+      xyz="1 0 0" />
+  </joint>
+  <link
+    name="right_wheel_Link">
+    <inertial>
+      <origin
+        xyz="-1.51592237033343E-06 8.86679334261009E-08 0.00851575640168067"
+        rpy="0 0 0" />
+      <mass
+        value="0.0298805023519675" />
+      <inertia
+        ixx="1.14403527575E-05"
+        ixy="-4.3050641569065E-10"
+        ixz="-4.60517260801647E-12"
+        iyy="1.14282996535032E-05"
+        iyz="-5.25622601389982E-09"
+        izz="2.12913595127045E-05" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://組合件1.SLDASM/meshes/right_wheel_Link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.262745098039216 0.282352941176471 0.301960784313725 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://組合件1.SLDASM/meshes/right_wheel_Link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="right_wheel_joint"
+    type="continuous">
+    <origin
+      xyz="-0.0363449839531717 -1.12293168824014 -0.08945305889237"
+      rpy="-1.5707963267949 0 3.14159265358979" />
+    <parent
+      link="base_link" />
+    <child
+      link="right_wheel_Link" />
+    <axis
+      xyz="0 0 1" />
+  </joint>
+</robot>
