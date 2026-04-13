@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TB3 Race Tuner</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;700&display=swap');
+:root{--bg:#0b0f19;--s1:#121a2b;--s2:#182035;--bd:#263048;--tx:#dce4f0;--tx2:#7b8ba5;--acc:#2d9cdb;--acc2:rgba(45,156,219,.25);--grn:#27ae60;--grn2:rgba(39,174,96,.25);--red:#e74c3c;--r:6px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Noto Sans TC','IBM Plex Mono',sans-serif;background:var(--bg);color:var(--tx);min-height:100vh}
+
+.top{position:sticky;top:0;z-index:90;display:flex;align-items:center;justify-content:space-between;padding:8px 16px;background:rgba(11,15,25,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--bd)}
+.top h1{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;letter-spacing:1.5px;color:var(--acc)}
+.top .st{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--tx2)}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--red);transition:.3s}
+.dot.on{background:var(--grn);box-shadow:0 0 6px var(--grn2)}
+
+.conn{display:flex;align-items:center;gap:8px;padding:8px 16px;background:var(--s1);border-bottom:1px solid var(--bd)}
+.conn label{font-size:11px;color:var(--tx2);white-space:nowrap}
+.conn input[type=text]{flex:1;padding:5px 8px;background:var(--bg);border:1px solid var(--bd);border-radius:var(--r);color:var(--tx);font-family:'IBM Plex Mono',monospace;font-size:11px;outline:0}
+.conn input:focus{border-color:var(--acc)}
+.btnc{padding:5px 14px;background:var(--acc);color:#fff;border:none;border-radius:var(--r);font-size:11px;font-weight:600;cursor:pointer}
+
+.wrap{max-width:1100px;margin:0 auto;padding:12px 16px}
+
+/* ── 雙欄影像 + 影像參數 ── */
+.cam-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.cam-col{background:var(--s1);border:1px solid var(--bd);border-radius:8px;overflow:hidden}
+.cam-col .vl{padding:5px 10px;font-size:10px;font-weight:600;color:var(--tx2);letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:5px}
+.cam-col .vl .live{width:5px;height:5px;border-radius:50%;background:var(--red);animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.cam-col img{width:100%;display:block;aspect-ratio:4/3;object-fit:contain;background:#000}
+.cam-params{padding:8px 10px;border-top:1px solid var(--bd)}
+
+/* ── 關卡 tabs ── */
+.tabs{display:flex;overflow-x:auto;background:var(--s1);border:1px solid var(--bd);border-radius:8px 8px 0 0;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{padding:8px 14px;font-size:11px;font-weight:600;color:var(--tx2);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;user-select:none;transition:.2s}
+.tab:hover{color:var(--tx)}.tab.on{color:var(--acc);border-bottom-color:var(--acc)}
+
+.panel{display:none;background:var(--s1);border:1px solid var(--bd);border-top:none;border-radius:0 0 8px 8px;padding:10px 12px}
+.panel.on{display:block}
+.sec{margin-bottom:12px}.sec:last-child{margin-bottom:0}
+.sec-title{font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:var(--tx2);letter-spacing:1.2px;text-transform:uppercase;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid var(--bd)}
+
+/* ── 參數列 (緊湊版) ── */
+.pr{display:grid;grid-template-columns:160px 1fr 58px;align-items:center;gap:8px;padding:4px 0}
+.pr .lb{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--tx);line-height:1.3}
+.pr .lb .u{font-size:9px;color:var(--tx2);margin-left:2px}
+input[type=range]{-webkit-appearance:none;width:100%;height:4px;background:var(--bd);border-radius:2px;outline:0;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--acc);box-shadow:0 0 4px var(--acc2);cursor:grab}
+.pv{width:58px;padding:3px 4px;background:var(--bg);border:1px solid var(--bd);border-radius:var(--r);color:var(--acc);font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;text-align:center;outline:0}
+.pv:focus{border-color:var(--acc)}
+
+/* ── HSV (緊湊) ── */
+.hsv{background:var(--s2);border:1px solid var(--bd);border-radius:var(--r);padding:8px 10px;margin-bottom:6px}
+.hsv .hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+.hsv .hdr span{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500}
+.cprev{width:28px;height:14px;border-radius:3px;border:1px solid var(--bd)}
+
+/* ── 底部 ── */
+.bot{position:sticky;bottom:0;padding:8px 16px;background:rgba(11,15,25,.92);backdrop-filter:blur(10px);border-top:1px solid var(--bd);display:flex;justify-content:space-between;align-items:center}
+.bot .info{font-size:10px;color:var(--tx2)}
+.bot-btns{display:flex;gap:6px}
+.btns{padding:6px 18px;border:none;border-radius:var(--r);font-weight:600;font-size:12px;cursor:pointer;transition:.15s}
+.btn-send{background:var(--grn);color:#fff}.btn-send:hover{box-shadow:0 2px 10px var(--grn2)}
+.btn-fetch{background:var(--s2);color:var(--tx);border:1px solid var(--bd)}
+
+.toast{position:fixed;bottom:60px;right:16px;padding:8px 14px;border-radius:var(--r);font-size:11px;font-weight:600;opacity:0;transform:translateY(8px);transition:.3s;pointer-events:none;z-index:100}
+.toast.show{opacity:1;transform:translateY(0)}.toast.ok{background:var(--grn);color:#fff}.toast.err{background:var(--red);color:#fff}
+
+.empty-msg{font-size:12px;color:var(--tx2);padding:8px 0}
+
+@media(max-width:700px){.cam-row{grid-template-columns:1fr}.pr{grid-template-columns:1fr 1fr 50px;gap:4px}}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <h1>TB3 RACE TUNER</h1>
+  <div class="st"><div class="dot" id="dot"></div><span id="stxt">未連線</span></div>
+</div>
+<div class="conn">
+  <label>Orin IP</label>
+  <input type="text" id="srv" value="http://192.168.11.100:5000">
+  <button class="btnc" onclick="doConnect()">連線</button>
+</div>
+
+<div class="wrap">
+  <!-- ====== 雙鏡頭 + 各自參數 ====== -->
+  <div class="cam-row">
+    <!-- 左：YOLO -->
+    <div class="cam-col">
+      <div class="vl"><div class="live"></div>YOLO 辨識畫面</div>
+      <img id="yoloImg" src="" alt="YOLO">
+      <div class="cam-params" id="yoloParams"></div>
+    </div>
+    <!-- 右：循線 -->
+    <div class="cam-col">
+      <div class="vl"><div class="live"></div>循線 Debug 畫面</div>
+      <img id="lineImg" src="" alt="Line">
+      <div class="cam-params" id="lineParams"></div>
+    </div>
+  </div>
+
+  <!-- ====== 關卡 Tabs ====== -->
+  <div class="tabs" id="tabsEl"></div>
+  <div id="panels"></div>
+</div>
+
+<div class="bot">
+  <div class="info" id="lastSend">尚未送出</div>
+  <div class="bot-btns">
+    <button class="btns btn-fetch" onclick="doFetch()">重新載入</button>
+    <button class="btns btn-send" onclick="doSend()">全部送出</button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================
+//  鏡頭下方參數 schema
+// ============================================================
+const YOLO_PARAMS = {
+  conf_threshold:   {lb:"信心度閾值", min:0.05, max:0.95, step:0.05},
+  brightness:       {lb:"亮度", min:-100, max:100, step:5},
+  saturation_scale: {lb:"飽和度", min:0.0, max:3.0, step:0.1},
+};
+
+const LINE_PARAMS_SLIDER = {
+  Kp:               {lb:"Kp 轉向靈敏度", min:0.001, max:0.02, step:0.001},
+  brightness:       {lb:"亮度", min:-100, max:100, step:5},
+  saturation_scale: {lb:"飽和度", min:0.0, max:3.0, step:0.1},
+};
+
+const LINE_HSV = [
+  {label:"黃線 HSV 下界", keys:["yellow_h_low","yellow_s_low","yellow_v_low"]},
+  {label:"黃線 HSV 上界", keys:["yellow_h_high","yellow_s_high","yellow_v_high"]},
+  {label:"白線 HSV 下界", keys:["white_h_low","white_s_low","white_v_low"]},
+  {label:"白線 HSV 上界", keys:["white_h_high","white_s_high","white_v_high"]},
+];
+
+// ============================================================
+//  關卡 schema (S1~S7)
+// ============================================================
+const STAGES = {
+  s1:{label:"S1 紅綠燈",icon:"🚦",sections:[{title:"無額外參數",params:{}}]},
+  s2:{label:"S2 路口",icon:"🔀",sections:[{title:"路口轉彎",params:{
+    approach_duration:        {lb:"盲走時間",min:1.0,max:8.0,step:0.5,u:"秒"},
+    spin_speed:               {lb:"自轉角速度",min:0.1,max:1.5,step:0.05,u:"rad/s"},
+    blind_spin_duration_left: {lb:"左轉盲轉",min:0.3,max:4.0,step:0.1,u:"秒"},
+    blind_spin_duration_right:{lb:"右轉盲轉",min:0.3,max:4.0,step:0.1,u:"秒"},
+  }}]},
+  s3:{label:"S3 禁行",icon:"⛔",sections:[{title:"禁行轉彎",params:{
+    approach_duration:        {lb:"前進時間",min:0.5,max:5.0,step:0.5,u:"秒"},
+    spin_speed:               {lb:"自轉角速度",min:0.1,max:1.5,step:0.05,u:"rad/s"},
+    blind_spin_duration_left: {lb:"左轉盲轉",min:0.3,max:4.0,step:0.1,u:"秒"},
+    blind_spin_duration_right:{lb:"右轉盲轉",min:0.3,max:4.0,step:0.1,u:"秒"},
+  }}]},
+  s4:{label:"S4 障礙",icon:"🪨",sections:[{title:"避障",params:{
+    roi_top_ratio:  {lb:"ROI 遮罩比例",min:0.3,max:0.9,step:0.05},
+    danger_zone:    {lb:"LiDAR 危險距離",min:0.1,max:1.0,step:0.05,u:"m"},
+    avoid_steer:    {lb:"閃避轉向力道",min:0.2,max:1.5,step:0.1,u:"rad/s"},
+    avoid_duration: {lb:"避障持續時間",min:2.0,max:10.0,step:0.5,u:"秒"},
+  }}]},
+  s5:{label:"S5 停車",icon:"🅿️",sections:[
+    {title:"入場",params:{
+      forward_delay:    {lb:"直走時間",min:1.0,max:10.0,step:0.5,u:"秒"},
+      turn_in_duration: {lb:"轉入秒數",min:0.5,max:3.0,step:0.1,u:"秒"},
+      drive_in_duration:{lb:"開進秒數",min:0.5,max:5.0,step:0.5,u:"秒"},
+    }},
+    {title:"停車 & 出場",params:{
+      parked_duration:   {lb:"停車等待",min:0.5,max:5.0,step:0.5,u:"秒"},
+      drive_out_duration:{lb:"倒車秒數",min:0.5,max:5.0,step:0.5,u:"秒"},
+      spin_out_duration: {lb:"轉出秒數",min:0.5,max:3.0,step:0.1,u:"秒"},
+      empty_threshold:   {lb:"空位距離門檻",min:0.2,max:1.5,step:0.05,u:"m"},
+    }},
+    {title:"雙黃線 & 離場",params:{
+      lost_line_timeout:      {lb:"黃線消失判定",min:0.1,max:2.0,step:0.1,u:"秒"},
+      blind_forward_duration: {lb:"盲走時間",min:0.5,max:5.0,step:0.5,u:"秒"},
+      final_turn_duration:    {lb:"離場左轉秒數",min:0.5,max:3.0,step:0.1,u:"秒"},
+    }},
+  ]},
+  s6:{label:"S6 柵欄",icon:"🚧",sections:[
+    {title:"柵欄偵測",params:{
+      red_threshold:     {lb:"紅色像素閾值",min:200,max:8000,step:100,u:"px"},
+      debounce_duration: {lb:"升起確認秒數",min:0.5,max:5.0,step:0.5,u:"秒"},
+    }},
+    {title:"紅色 HSV ① (0~10)",type:"hsv",keys:[
+      ["red_h_low_1","red_s_low_1","red_v_low_1"],
+      ["red_h_high_1","red_s_high_1","red_v_high_1"]
+    ],labels:["下界","上界"]},
+    {title:"紅色 HSV ② (170~180)",type:"hsv",keys:[
+      ["red_h_low_2","red_s_low_2","red_v_low_2"],
+      ["red_h_high_2","red_s_high_2","red_v_high_2"]
+    ],labels:["下界","上界"]},
+  ]},
+  s7:{label:"S7 隧道",icon:"🕳️",sections:[{title:"隧道導航",params:{
+    blind_forward_duration:{lb:"盲走時間",min:0.5,max:5.0,step:0.5,u:"秒"},
+    nav_Kp:                {lb:"導航 Kp",min:0.005,max:0.03,step:0.001},
+    emergency_distance:    {lb:"防撞距離",min:0.15,max:0.8,step:0.05,u:"m"},
+    emergency_steer:       {lb:"緊急轉向力道",min:0.3,max:1.5,step:0.1,u:"rad/s"},
+    red_threshold:         {lb:"紅線像素閾值",min:50,max:2000,step:50,u:"px"},
+    exit_duration:         {lb:"衝線時間",min:1.0,max:6.0,step:0.5,u:"秒"},
+    lost_line_timeout:     {lb:"失線判定",min:0.1,max:2.0,step:0.1,u:"秒"},
+  }}]},
+};
+
+let params={}, activeTab="s1";
+
+// ============================================================
+//  UI builders
+// ============================================================
+function mkRow(stage,key,s,value){
+  const row=document.createElement("div");row.className="pr";
+  const lb=document.createElement("div");lb.className="lb";
+  lb.innerHTML=s.lb+(s.u?`<span class="u">(${s.u})</span>`:"");
+  const sl=document.createElement("input");
+  sl.type="range";sl.min=s.min;sl.max=s.max;sl.step=s.step;sl.value=value;
+  const nv=document.createElement("input");
+  nv.type="number";nv.className="pv";nv.min=s.min;nv.max=s.max;nv.step=s.step;nv.value=value;
+  sl.oninput=()=>{nv.value=sl.value;setP(stage,key,parseFloat(sl.value))};
+  nv.onchange=()=>{sl.value=nv.value;setP(stage,key,parseFloat(nv.value))};
+  row.appendChild(lb);row.appendChild(sl);row.appendChild(nv);return row;
+}
+function mkHSV(stage,keys,label){
+  const c=document.createElement("div");c.className="hsv";
+  const hdr=document.createElement("div");hdr.className="hdr";
+  const sp=document.createElement("span");sp.textContent=label;
+  const prev=document.createElement("div");prev.className="cprev";
+  prev.id=`cp_${stage}_${keys.join("_")}`;
+  hdr.appendChild(sp);hdr.appendChild(prev);c.appendChild(hdr);
+  const ch=["H","S","V"],mx=[180,255,255];
+  keys.forEach((k,i)=>{
+    const val=getP(stage,k);
+    const row=document.createElement("div");row.className="pr";
+    const lb=document.createElement("div");lb.className="lb";lb.textContent=ch[i];
+    const sl=document.createElement("input");sl.type="range";sl.min=0;sl.max=mx[i];sl.step=1;sl.value=val;
+    const nv=document.createElement("input");nv.type="number";nv.className="pv";nv.min=0;nv.max=mx[i];nv.value=val;
+    sl.oninput=()=>{nv.value=sl.value;setP(stage,k,parseInt(sl.value));updPrev(stage,keys)};
+    nv.onchange=()=>{sl.value=nv.value;setP(stage,k,parseInt(nv.value));updPrev(stage,keys)};
+    row.appendChild(lb);row.appendChild(sl);row.appendChild(nv);c.appendChild(row);
+  });
+  setTimeout(()=>updPrev(stage,keys),50);return c;
+}
+function updPrev(stage,keys){
+  const el=document.getElementById(`cp_${stage}_${keys.join("_")}`);if(!el)return;
+  const h=getP(stage,keys[0])*2,s=(getP(stage,keys[1])/255)*100,l=(getP(stage,keys[2])/255)*50+25;
+  el.style.background=`hsl(${h},${s}%,${l}%)`;
+}
+function getP(stage,key){return(params[stage]&&params[stage][key]!==undefined)?params[stage][key]:0}
+function setP(stage,key,val){if(!params[stage])params[stage]={};params[stage][key]=val}
+
+// ── 鏡頭下方參數 ──
+function buildCamParams(){
+  // YOLO
+  const yEl=document.getElementById("yoloParams");yEl.innerHTML="";
+  for(const[k,s]of Object.entries(YOLO_PARAMS)){
+    yEl.appendChild(mkRow("yolo",k,s,getP("yolo",k)||s.min));
+  }
+  // Line sliders
+  const lEl=document.getElementById("lineParams");lEl.innerHTML="";
+  for(const[k,s]of Object.entries(LINE_PARAMS_SLIDER)){
+    lEl.appendChild(mkRow("line",k,s,getP("line",k)||s.min));
+  }
+  // Line HSV groups
+  for(const g of LINE_HSV){
+    lEl.appendChild(mkHSV("line",g.keys,g.label));
+  }
+}
+
+// ── 關卡 tabs & panels ──
+function buildTabs(){
+  const el=document.getElementById("tabsEl");el.innerHTML="";
+  for(const[k,v]of Object.entries(STAGES)){
+    const d=document.createElement("div");
+    d.className="tab"+(k===activeTab?" on":"");
+    d.textContent=v.icon+" "+v.label;
+    d.onclick=()=>switchTab(k);el.appendChild(d);
+  }
+}
+function switchTab(k){
+  activeTab=k;
+  document.querySelectorAll(".tab").forEach((t,i)=>t.classList.toggle("on",Object.keys(STAGES)[i]===k));
+  document.querySelectorAll(".panel").forEach(p=>p.classList.toggle("on",p.dataset.stage===k));
+}
+function buildPanels(){
+  const el=document.getElementById("panels");el.innerHTML="";
+  for(const[sk,schema]of Object.entries(STAGES)){
+    const panel=document.createElement("div");
+    panel.className="panel"+(sk===activeTab?" on":"");
+    panel.dataset.stage=sk;
+    for(const sec of schema.sections){
+      const sd=document.createElement("div");sd.className="sec";
+      const tt=document.createElement("div");tt.className="sec-title";tt.textContent=sec.title;
+      sd.appendChild(tt);
+      if(sec.type==="hsv"){
+        for(let g=0;g<sec.keys.length;g++) sd.appendChild(mkHSV(sk,sec.keys[g],sec.labels[g]));
+      } else if(Object.keys(sec.params).length===0){
+        const em=document.createElement("div");em.className="empty-msg";em.textContent="此關卡無額外可調參數";
+        sd.appendChild(em);
+      } else {
+        for(const[pk,ps]of Object.entries(sec.params)){
+          sd.appendChild(mkRow(sk,pk,ps,getP(sk,pk)||ps.min));
+        }
+      }
+      panel.appendChild(sd);
+    }
+    el.appendChild(panel);
+  }
+}
+
+// ============================================================
+//  Server
+// ============================================================
+function srv(){return document.getElementById("srv").value.replace(/\/+$/,"")}
+async function doConnect(){await doFetch();document.getElementById("yoloImg").src=srv()+"/stream/yolo";document.getElementById("lineImg").src=srv()+"/stream/line"}
+async function doFetch(){
+  try{
+    const r=await fetch(srv()+"/api/params");if(!r.ok)throw new Error(r.statusText);
+    params=await r.json();buildCamParams();buildPanels();conn(true);toast("參數已載入！",false);
+  }catch(e){conn(false);toast("連線失敗: "+e.message,true)}
+}
+async function doSend(){
+  let ok=0,fail=0;
+  for(const[stage,p]of Object.entries(params)){
+    try{const r=await fetch(srv()+"/api/params/"+stage,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(p)});if(r.ok)ok++;else fail++}catch{fail++}
+  }
+  document.getElementById("lastSend").textContent=`送出: ${new Date().toLocaleTimeString()}`;
+  if(fail===0)toast(`送出成功 (${ok} stages)`,false);else toast(`${ok} 成功, ${fail} 失敗`,true);
+}
+function conn(ok){document.getElementById("dot").classList.toggle("on",ok);document.getElementById("stxt").textContent=ok?"已連線":"未連線"}
+function toast(msg,err){const t=document.getElementById("toast");t.textContent=(err?"❌ ":"✅ ")+msg;t.className="toast show "+(err?"err":"ok");setTimeout(()=>t.className="toast",2500)}
+
+buildTabs();buildCamParams();buildPanels();
+</script>
+</body>
+</html>
