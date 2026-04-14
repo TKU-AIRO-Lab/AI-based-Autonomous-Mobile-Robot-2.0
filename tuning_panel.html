@@ -24,14 +24,20 @@ body{font-family:'Noto Sans TC','IBM Plex Mono',sans-serif;background:var(--bg);
 
 .wrap{max-width:1100px;margin:0 auto;padding:12px 16px}
 
-/* ── 雙欄影像 + 影像參數 ── */
-.cam-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+/* ── 三欄影像 + 光達 ── */
+.cam-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px}
 .cam-col{background:var(--s1);border:1px solid var(--bd);border-radius:8px;overflow:hidden}
 .cam-col .vl{padding:5px 10px;font-size:10px;font-weight:600;color:var(--tx2);letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:5px}
 .cam-col .vl .live{width:5px;height:5px;border-radius:50%;background:var(--red);animation:pulse 1.5s infinite}
+.cam-col .vl .live.lidar-live{background:var(--acc)}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 .cam-col img{width:100%;display:block;aspect-ratio:4/3;object-fit:contain;background:#000}
 .cam-params{padding:8px 10px;border-top:1px solid var(--bd)}
+.popbtn{margin-left:auto;padding:2px 7px;background:transparent;border:1px solid var(--bd);border-radius:3px;color:var(--tx2);font-size:10px;cursor:pointer;transition:.2s;flex-shrink:0}
+.popbtn:hover{color:var(--tx);border-color:var(--acc)}
+/* 光達 canvas */
+#lidarCanvas{width:100%;aspect-ratio:1/1;display:block;background:#000;cursor:default}
+.lidar-info{padding:4px 10px;border-top:1px solid var(--bd);font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--tx2);min-height:22px}
 
 /* ── 關卡 tabs ── */
 .tabs{display:flex;overflow-x:auto;background:var(--s1);border:1px solid var(--bd);border-radius:8px 8px 0 0;scrollbar-width:none}
@@ -72,7 +78,18 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;heigh
 
 .empty-msg{font-size:12px;color:var(--tx2);padding:8px 0}
 
-@media(max-width:700px){.cam-row{grid-template-columns:1fr}.pr{grid-template-columns:1fr 1fr 50px;gap:4px}}
+/* ── 關卡控制列 ── */
+.stage-ctrl-wrap{background:var(--s1);border:1px solid var(--bd);border-radius:8px;padding:10px 12px;margin-bottom:12px}
+.stage-ctrl-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.stage-ctrl-hdr .sc-title{font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:var(--tx2);letter-spacing:1.2px;text-transform:uppercase}
+.stage-status{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--acc);font-weight:600}
+.stage-btns-row{display:flex;gap:6px;flex-wrap:wrap}
+.stage-btn{flex:1;min-width:80px;padding:7px 4px;background:var(--s2);color:var(--tx2);border:1px solid var(--bd);border-radius:var(--r);font-size:11px;font-weight:600;cursor:pointer;transition:.15s;white-space:nowrap;text-align:center;line-height:1.4}
+.stage-btn:hover{color:var(--tx);border-color:var(--acc)}
+.stage-btn.active{background:var(--acc2);color:var(--acc);border-color:var(--acc);box-shadow:0 0 8px rgba(45,156,219,.3)}
+
+@media(max-width:900px){.cam-row{grid-template-columns:1fr 1fr}}
+@media(max-width:600px){.cam-row{grid-template-columns:1fr}.pr{grid-template-columns:1fr 1fr 50px;gap:4px}}
 </style>
 </head>
 <body>
@@ -83,24 +100,56 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;heigh
 </div>
 <div class="conn">
   <label>Orin IP</label>
-  <input type="text" id="srv" value="http://192.168.11.100:5000">
+  <input type="text" id="srv" value="">
   <button class="btnc" onclick="doConnect()">連線</button>
 </div>
 
 <div class="wrap">
-  <!-- ====== 雙鏡頭 + 各自參數 ====== -->
+  <!-- ====== 三欄：YOLO / 循線 / 光達 ====== -->
   <div class="cam-row">
-    <!-- 左：YOLO -->
+    <!-- YOLO -->
     <div class="cam-col">
-      <div class="vl"><div class="live"></div>YOLO 辨識畫面</div>
+      <div class="vl"><div class="live"></div>YOLO 辨識畫面<button class="popbtn" onclick="popout('yolo')" title="獨立視窗">⊞</button></div>
       <img id="yoloImg" src="" alt="YOLO">
       <div class="cam-params" id="yoloParams"></div>
     </div>
-    <!-- 右：循線 -->
+    <!-- 循線 -->
     <div class="cam-col">
-      <div class="vl"><div class="live"></div>循線 Debug 畫面</div>
+      <div class="vl"><div class="live"></div>循線 Debug 畫面<button class="popbtn" id="undistortToggle" onclick="toggleUndistort()" title="切換鏡頭校正" style="color:var(--grn);border-color:var(--grn)">校正 ON</button><button class="popbtn" onclick="popout('line')" title="獨立視窗">⊞</button></div>
       <img id="lineImg" src="" alt="Line">
       <div class="cam-params" id="lineParams"></div>
+    </div>
+    <!-- 光達 -->
+    <div class="cam-col">
+      <div class="vl"><div class="live lidar-live" id="lidarLive"></div>光達掃描<button class="popbtn" onclick="popout('lidar')" title="獨立視窗">⊞</button></div>
+      <canvas id="lidarCanvas" width="400" height="400"></canvas>
+      <div class="lidar-info">
+        <div style="display:flex;align-items:center;gap:8px;padding:2px 0">
+          <span style="flex-shrink:0">顯示範圍</span>
+          <input type="range" id="lidarRange" min="1" max="20" step="0.5" value="8"
+            oninput="document.getElementById('lidarRangeVal').textContent=this.value+' m';drawLidar()"
+            style="flex:1">
+          <span id="lidarRangeVal" style="width:40px;text-align:right;flex-shrink:0">8 m</span>
+        </div>
+        <div id="lidarInfo" style="color:var(--tx2)">未連線</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== 關卡控制 ====== -->
+  <div class="stage-ctrl-wrap">
+    <div class="stage-ctrl-hdr">
+      <span class="sc-title">關卡控制（強制跳關）</span>
+      <span class="stage-status" id="stageStatus">— 未選擇 —</span>
+    </div>
+    <div class="stage-btns-row">
+      <button class="stage-btn" data-stage="1" onclick="setStage(1)">🚦<br>S1 紅綠燈</button>
+      <button class="stage-btn" data-stage="2" onclick="setStage(2)">🔀<br>S2 路口</button>
+      <button class="stage-btn" data-stage="3" onclick="setStage(3)">⛔<br>S3 禁行</button>
+      <button class="stage-btn" data-stage="4" onclick="setStage(4)">🪨<br>S4 障礙</button>
+      <button class="stage-btn" data-stage="5" onclick="setStage(5)">🅿️<br>S5 停車</button>
+      <button class="stage-btn" data-stage="6" onclick="setStage(6)">🚧<br>S6 柵欄</button>
+      <button class="stage-btn" data-stage="7" onclick="setStage(7)">🕳️<br>S7 隧道</button>
     </div>
   </div>
 
@@ -130,6 +179,8 @@ const YOLO_PARAMS = {
 
 const LINE_PARAMS_SLIDER = {
   Kp:               {lb:"Kp 轉向靈敏度", min:0.001, max:0.02, step:0.001},
+  line_mask_size:   {lb:"遮罩高度（上移=遮更多）", min:0.0, max:0.7, step:0.05, invert:true},
+  line_mask_top_w:  {lb:"梯形頂寬（大=側邊不內縮）", min:0.5, max:2.0, step:0.1},
   brightness:       {lb:"亮度", min:-100, max:100, step:5},
   saturation_scale: {lb:"飽和度", min:0.0, max:3.0, step:0.1},
 };
@@ -147,14 +198,16 @@ const LINE_HSV = [
 const STAGES = {
   s1:{label:"S1 紅綠燈",icon:"🚦",sections:[{title:"無額外參數",params:{}}]},
   s2:{label:"S2 路口",icon:"🔀",sections:[{title:"路口轉彎",params:{
-    approach_duration:        {lb:"盲走時間",min:1.0,max:8.0,step:0.5,u:"秒"},
+    approach_duration:        {lb:"盲走時間",min:1.0,max:12.0,step:0.5,u:"秒"},
     spin_speed:               {lb:"自轉角速度",min:0.1,max:1.5,step:0.05,u:"rad/s"},
+    turn_linear:              {lb:"轉彎前進速度",min:0.0,max:0.2,step:0.01,u:"m/s"},
     blind_spin_duration_left: {lb:"左轉盲轉",min:0.3,max:4.0,step:0.1,u:"秒"},
     blind_spin_duration_right:{lb:"右轉盲轉",min:0.3,max:4.0,step:0.1,u:"秒"},
   }}]},
   s3:{label:"S3 禁行",icon:"⛔",sections:[{title:"禁行轉彎",params:{
     approach_duration:        {lb:"前進時間",min:0.5,max:5.0,step:0.5,u:"秒"},
     spin_speed:               {lb:"自轉角速度",min:0.1,max:1.5,step:0.05,u:"rad/s"},
+    turn_linear:              {lb:"轉彎前進速度",min:0.0,max:0.2,step:0.01,u:"m/s"},
     blind_spin_duration_left: {lb:"左轉盲轉",min:0.3,max:4.0,step:0.1,u:"秒"},
     blind_spin_duration_right:{lb:"右轉盲轉",min:0.3,max:4.0,step:0.1,u:"秒"},
   }}]},
@@ -207,21 +260,45 @@ const STAGES = {
   }}]},
 };
 
-let params={}, activeTab="s1";
+let params={}, activeTab="s1", isConnected=false;
 
 // ============================================================
 //  UI builders
 // ============================================================
+// ── 防彈跳自動送出（滑桿停止 400ms 後自動送出該關卡參數）──
+const _autoSendTimers = {};
+function autoSendStage(stage) {
+  if (!isConnected) return;  // 未連線時不送
+  clearTimeout(_autoSendTimers[stage]);
+  _autoSendTimers[stage] = setTimeout(async () => {
+    if (!params[stage]) return;
+    try {
+      await fetch(srv() + '/api/params/' + stage, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(params[stage])
+      });
+    } catch(e) {}
+  }, 400);
+}
+
 function mkRow(stage,key,s,value){
+  // invert: display = max-server, send = max-display（數字大=遮多，數字小=遮少）
+  const disp = s.invert ? (parseFloat(s.max) - value) : value;
   const row=document.createElement("div");row.className="pr";
   const lb=document.createElement("div");lb.className="lb";
   lb.innerHTML=s.lb+(s.u?`<span class="u">(${s.u})</span>`:"");
   const sl=document.createElement("input");
-  sl.type="range";sl.min=s.min;sl.max=s.max;sl.step=s.step;sl.value=value;
+  sl.type="range";sl.min=s.min;sl.max=s.max;sl.step=s.step;sl.value=disp;
   const nv=document.createElement("input");
-  nv.type="number";nv.className="pv";nv.min=s.min;nv.max=s.max;nv.step=s.step;nv.value=value;
-  sl.oninput=()=>{nv.value=sl.value;setP(stage,key,parseFloat(sl.value))};
-  nv.onchange=()=>{sl.value=nv.value;setP(stage,key,parseFloat(nv.value))};
+  nv.type="number";nv.className="pv";nv.min=s.min;nv.max=s.max;nv.step=s.step;nv.value=disp;
+  if(s.invert){
+    sl.oninput=()=>{nv.value=sl.value;setP(stage,key,parseFloat(s.max)-parseFloat(sl.value));autoSendStage(stage)};
+    nv.onchange=()=>{sl.value=nv.value;setP(stage,key,parseFloat(s.max)-parseFloat(nv.value));autoSendStage(stage)};
+  } else {
+    sl.oninput=()=>{nv.value=sl.value;setP(stage,key,parseFloat(sl.value));autoSendStage(stage)};
+    nv.onchange=()=>{sl.value=nv.value;setP(stage,key,parseFloat(nv.value));autoSendStage(stage)};
+  }
   row.appendChild(lb);row.appendChild(sl);row.appendChild(nv);return row;
 }
 function mkHSV(stage,keys,label){
@@ -238,8 +315,8 @@ function mkHSV(stage,keys,label){
     const lb=document.createElement("div");lb.className="lb";lb.textContent=ch[i];
     const sl=document.createElement("input");sl.type="range";sl.min=0;sl.max=mx[i];sl.step=1;sl.value=val;
     const nv=document.createElement("input");nv.type="number";nv.className="pv";nv.min=0;nv.max=mx[i];nv.value=val;
-    sl.oninput=()=>{nv.value=sl.value;setP(stage,k,parseInt(sl.value));updPrev(stage,keys)};
-    nv.onchange=()=>{sl.value=nv.value;setP(stage,k,parseInt(nv.value));updPrev(stage,keys)};
+    sl.oninput=()=>{nv.value=sl.value;setP(stage,k,parseInt(sl.value));updPrev(stage,keys);autoSendStage(stage)};
+    nv.onchange=()=>{sl.value=nv.value;setP(stage,k,parseInt(nv.value));updPrev(stage,keys);autoSendStage(stage)};
     row.appendChild(lb);row.appendChild(sl);row.appendChild(nv);c.appendChild(row);
   });
   setTimeout(()=>updPrev(stage,keys),50);return c;
@@ -251,6 +328,34 @@ function updPrev(stage,keys){
 }
 function getP(stage,key){return(params[stage]&&params[stage][key]!==undefined)?params[stage][key]:0}
 function setP(stage,key,val){if(!params[stage])params[stage]={};params[stage][key]=val}
+
+// ── 鏡頭校正切換 ──
+async function toggleUndistort() {
+  if (!isConnected) { toast('請先連線', true); return; }
+  const btn = document.getElementById('undistortToggle');
+  const current = (params.line && params.line.undistort_enabled !== undefined)
+    ? params.line.undistort_enabled : 1;
+  const next = current ? 0 : 1;
+  try {
+    await fetch(srv() + '/api/params/line', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({undistort_enabled: next})
+    });
+    if (!params.line) params.line = {};
+    params.line.undistort_enabled = next;
+    syncUndistortBtn(next);
+    toast('鏡頭校正 ' + (next ? '已開啟' : '已關閉'), false);
+  } catch(e) { toast('切換失敗: ' + e.message, true); }
+}
+function syncUndistortBtn(val) {
+  const btn = document.getElementById('undistortToggle');
+  if (!btn) return;
+  const on = val ? true : false;
+  btn.textContent = on ? '校正 ON' : '校正 OFF';
+  btn.style.color = on ? 'var(--grn)' : 'var(--red)';
+  btn.style.borderColor = on ? 'var(--grn)' : 'var(--red)';
+}
 
 // ── 鏡頭下方參數 ──
 function buildCamParams(){
@@ -268,6 +373,8 @@ function buildCamParams(){
   for(const g of LINE_HSV){
     lEl.appendChild(mkHSV("line",g.keys,g.label));
   }
+  // 同步校正按鈕狀態
+  syncUndistortBtn(params.line ? (params.line.undistort_enabled ?? 1) : 1);
 }
 
 // ── 關卡 tabs & panels ──
@@ -314,8 +421,17 @@ function buildPanels(){
 // ============================================================
 //  Server
 // ============================================================
-function srv(){return document.getElementById("srv").value.replace(/\/+$/,"")}
-async function doConnect(){await doFetch();document.getElementById("yoloImg").src=srv()+"/stream/yolo";document.getElementById("lineImg").src=srv()+"/stream/line"}
+function srv(){
+  const v=document.getElementById("srv").value.replace(/\/+$/,"").trim();
+  if(!v) return "";
+  if(!v.startsWith("http")) return "http://"+v;
+  return v;
+}
+async function doConnect(){
+  await doFetch();
+  document.getElementById("yoloImg").src=srv()+"/stream/yolo?t="+Date.now();
+  document.getElementById("lineImg").src=srv()+"/stream/line?t="+Date.now();
+}
 async function doFetch(){
   try{
     const r=await fetch(srv()+"/api/params");if(!r.ok)throw new Error(r.statusText);
@@ -330,10 +446,164 @@ async function doSend(){
   document.getElementById("lastSend").textContent=`送出: ${new Date().toLocaleTimeString()}`;
   if(fail===0)toast(`送出成功 (${ok} stages)`,false);else toast(`${ok} 成功, ${fail} 失敗`,true);
 }
-function conn(ok){document.getElementById("dot").classList.toggle("on",ok);document.getElementById("stxt").textContent=ok?"已連線":"未連線"}
+function conn(ok){isConnected=ok;document.getElementById("dot").classList.toggle("on",ok);document.getElementById("stxt").textContent=ok?"已連線":"未連線"}
 function toast(msg,err){const t=document.getElementById("toast");t.textContent=(err?"❌ ":"✅ ")+msg;t.className="toast show "+(err?"err":"ok");setTimeout(()=>t.className="toast",2500)}
 
+// ============================================================
+//  關卡控制
+// ============================================================
+async function setStage(n) {
+  if (!isConnected) { toast('請先連線', true); return; }
+  try {
+    const r = await fetch(srv() + '/api/set_stage', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({stage: n})
+    });
+    if (!r.ok) throw new Error((await r.json()).error || r.statusText);
+    document.querySelectorAll('.stage-btn').forEach(b => {
+      b.classList.toggle('active', parseInt(b.dataset.stage) === n);
+    });
+    const labels = {1:'S1 紅綠燈',2:'S2 路口',3:'S3 禁行',4:'S4 障礙',5:'S5 停車',6:'S6 柵欄',7:'S7 隧道'};
+    document.getElementById('stageStatus').textContent = labels[n] + ' 已啟動';
+    toast(`切換到 ${labels[n]}`, false);
+  } catch(e) {
+    toast('切換失敗: ' + e.message, true);
+  }
+}
+
 buildTabs();buildCamParams();buildPanels();
+
+// ============================================================
+//  光達視覺化
+// ============================================================
+let latestScan = null;
+let lidarActive = false;
+
+function drawLidar() {
+  const canvas = document.getElementById('lidarCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const cx = W / 2, cy = H / 2;
+  const R = Math.min(cx, cy) - 20;
+
+  ctx.fillStyle = '#0b0f19';
+  ctx.fillRect(0, 0, W, H);
+
+  if (!latestScan) {
+    ctx.fillStyle = '#7b8ba5';
+    ctx.font = '13px IBM Plex Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('等待光達資料...', cx, cy);
+    ctx.textAlign = 'left';
+    return;
+  }
+
+  const rMax = parseFloat(document.getElementById('lidarRange')?.value || 8);
+  const sc = R / rMax;
+  const ringStep = rMax <= 4 ? 0.5 : rMax <= 10 ? 1.0 : 2.0;
+
+  // 距離環
+  for (let r = ringStep; r <= rMax; r += ringStep) {
+    ctx.strokeStyle = '#263048';
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r * sc, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = '#4a5568';
+    ctx.font = '9px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(r.toFixed(1) + 'm', cx + r * sc + 3, cy - 2);
+  }
+
+  // 十字線
+  ctx.strokeStyle = '#1e2a3a';
+  ctx.lineWidth = 0.5;
+  ctx.beginPath(); ctx.moveTo(cx, cy - R); ctx.lineTo(cx, cy + R); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx - R, cy); ctx.lineTo(cx + R, cy); ctx.stroke();
+
+  // 危險距離圈（S4 參數）
+  const dz = (params.s4 && params.s4.danger_zone) ? params.s4.danger_zone : 0.35;
+  ctx.strokeStyle = 'rgba(231,76,60,0.7)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(cx, cy, dz * sc, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // 前方方向線
+  ctx.strokeStyle = 'rgba(45,156,219,0.4)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - R);
+  ctx.lineTo(cx, cy);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 掃描點
+  const { ranges, angle_min, angle_increment, range_min, range_max } = latestScan;
+  ctx.fillStyle = '#27ae60';
+  for (let i = 0; i < ranges.length; i++) {
+    const rng = ranges[i];
+    if (rng <= 0 || !isFinite(rng) || rng < range_min || rng > range_max) continue;
+    const angle = angle_min + i * angle_increment;
+    const px = cx + rng * sc * Math.sin(angle);
+    const py = cy - rng * sc * Math.cos(angle);
+    ctx.fillRect(px - 1.5, py - 1.5, 3, 3);
+  }
+
+  // 機器人本體
+  ctx.fillStyle = '#2d9cdb';
+  ctx.beginPath();
+  ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+  ctx.fill();
+  // 前方三角
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - 14);
+  ctx.lineTo(cx - 5, cy - 6);
+  ctx.lineTo(cx + 5, cy - 6);
+  ctx.fill();
+}
+
+async function pollScan() {
+  const s = srv();  // "" 代表同 origin，相對路徑也可用
+  try {
+    const r = await fetch(s + '/api/scan');
+    if (r.ok) {
+      latestScan = await r.json();
+      if (!latestScan.error) {
+        const pts = latestScan.ranges.filter(x => x > 0 && isFinite(x)).length;
+        document.getElementById('lidarInfo').textContent =
+          `${pts} 點 | max ${(latestScan.range_max || 0).toFixed(1)} m`;
+        document.getElementById('lidarLive').style.background = 'var(--grn)';
+        lidarActive = true;
+      }
+    }
+  } catch (e) {
+    if (lidarActive) {
+      document.getElementById('lidarInfo').textContent = '光達失線';
+      document.getElementById('lidarLive').style.background = 'var(--red)';
+      lidarActive = false;
+    }
+  }
+  drawLidar();
+  setTimeout(pollScan, 100);
+}
+
+// ============================================================
+//  獨立視窗彈出
+// ============================================================
+function popout(type) {
+  const s = srv();
+  if (!isConnected) { toast('請先連線', true); return; }
+  const titles = { yolo: 'YOLO 辨識', line: '循線 Debug', lidar: '光達掃描' };
+  const sizes  = { yolo: 'width=740,height=580', line: 'width=740,height=580', lidar: 'width=520,height=560' };
+  window.open(s + '/popout/' + type, type + '_win', sizes[type] + ',resizable=yes');
+}
+
+// 頁面載入後開始輪詢（srv() 空時每 500ms 重試，連線後自動更新）
+pollScan();
 </script>
 </body>
 </html>
