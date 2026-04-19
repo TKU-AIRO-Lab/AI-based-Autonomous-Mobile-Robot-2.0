@@ -17,7 +17,7 @@ ADDR_GOAL_VELOCITY  = 104  # 4 bytes (int32)
 
 PROTOCOL_VERSION = 2.0
 BAUDRATE         = 1000000
-DEVICE           = '/dev/ttyACM0'
+DEVICE           = '/dev/ttyACM1'
 
 DXL_LEFT  = 1
 DXL_RIGHT = 2
@@ -55,6 +55,13 @@ class MotorDriverNode(Node):
 
         # 等 OpenCR 準備好
         time.sleep(0.5)
+
+        # Reboot 兩顆馬達，清除上次殘留的 Hardware Error Status
+        # （COMM_RX_CORRUPT / code=-3002 通常是馬達有 error flag 未清除）
+        self.get_logger().info('Rebooting motors to clear any hardware error flags...')
+        for dxl_id in (DXL_LEFT, DXL_RIGHT):
+            self.pk.reboot(self.ph, dxl_id)
+        time.sleep(0.5)  # 等馬達重啟完成
 
         # 設定 Velocity Control Mode 並開啟 Torque
         init_ok = True
@@ -112,7 +119,7 @@ class MotorDriverNode(Node):
             self.get_logger().error('Port not ready! 請確認 /dev/ttyACM0 是否連接正確', throttle_duration_sec=2.0)
             return
 
-        lx = msg.linear.x
+        lx = -msg.linear.x   # 底盤 180° 翻轉，前進/後退相反，取負修正
         az = msg.angular.z
 
         # 輪緣線速度 (m/s) → 角速度 (rad/s) → Dynamixel 單位

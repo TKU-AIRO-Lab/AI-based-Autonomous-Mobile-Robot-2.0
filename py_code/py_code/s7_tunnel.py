@@ -4,6 +4,11 @@ import cv2
 import numpy as np
 from .param_server import shared_params
 
+try:
+    from .slam_visualizer import get_nav_angle as _slam_get_angle
+except ImportError:
+    def _slam_get_angle(): return None
+
 class TunnelStage:
     def __init__(self):
         self.state = "normal"
@@ -67,7 +72,15 @@ class TunnelStage:
                     max_score = score
                     best_angle = deg_norm
                     
-        # 🌟 低通濾波避震器 (Low-Pass Filter)
+        # 🌟 SLAM A* 全局路徑導向 + 低通濾波避震器
+        # navigating 狀態下：把 SLAM 算出的出口角度混入本地評分
+        # （SLAM 提供全局方向感，本地評分提供即時避障）
+        if self.state == "navigating":
+            slam_angle = _slam_get_angle()
+            if slam_angle is not None:
+                # 70% 本地評分（即時避障）+ 30% SLAM 全局方向（導向出口）
+                best_angle = best_angle * 0.7 + slam_angle * 0.3
+
         self.smoothed_angle = 0.7 * self.smoothed_angle + 0.3 * best_angle
         self.front_dist = min(front_scan) if front_scan else 3.5
         self.target_angle = best_angle # 更新目標角度

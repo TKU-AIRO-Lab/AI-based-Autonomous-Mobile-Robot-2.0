@@ -5,7 +5,7 @@ from geometry_msgs.msg import Twist
 from sensor_msgs.msg import LaserScan
 from std_msgs.msg import String, Int32
 from cv_bridge import CvBridge
-from py_code.param_server import shared_params
+from py_code.param_server import shared_params, push_log
 import cv2
 import numpy as np
 import json
@@ -44,7 +44,7 @@ def undistort(frame):
 YOLO_WINDOW_SIZE   = 8   # 滑動窗口大小（看最近幾幀）
 YOLO_CONFIRM_THRESH = 5  # 窗口內出現幾次同一 label 就算確認
 
-WHEEL_DELAY = 1.2  # 鏡頭超前輪軸的補償延遲（秒）
+WHEEL_DELAY = 0.5  # 鏡頭超前輪軸的補償延遲（秒）
 
 # 匯入你的關卡模組
 from py_code.s1_traffic_light import TrafficLightStage
@@ -95,11 +95,12 @@ class MainController(Node):
         self.get_logger().info("現在進入 Stage 1: 等待綠燈")
 
     def _publish_with_delay(self, twist_cmd):
-        """循線專用 publish：angular.z 延遲 WHEEL_DELAY 秒，補償鏡頭超前輪軸的偏移。"""
+        """循線專用 publish：angular.z 延遲 wheel_delay 秒，補償鏡頭超前輪軸的偏移。"""
         now = time.time()
         self._steer_buffer.append((now, twist_cmd.angular.z))
 
-        target_t = now - WHEEL_DELAY
+        wheel_delay = shared_params.get("line", {}).get("wheel_delay", WHEEL_DELAY)
+        target_t = now - wheel_delay
         while len(self._steer_buffer) > 1 and self._steer_buffer[1][0] <= target_t:
             self._steer_buffer.popleft()
 
@@ -125,22 +126,42 @@ class MainController(Node):
             pass
 
     def set_stage_callback(self, msg):
-        """可以強制切換關卡並直接發車"""
+        """可以強制切換關卡並直接發車（S1 例外：保持停止，等綠燈）"""
         self.cs = msg.data
-        self.is_running = True
+        if msg.data == 1:
+            self.is_running = False  # S1 需等綠燈確認後才發車
+            self.cmd_vel_pub.publish(Twist())
+        else:
+            self.is_running = True
+        # 各關卡強制跳關時需要初始化狀態
+        if msg.data == 2:
+            self.s2.reset()
+        if msg.data == 6:
+            self.s6.reset()
+        if msg.data == 3:
+            self.s3.inherit_direction(self.s2.get_turn_direction())
+        if msg.data == 7:
+            self.s7.state = "entering"
+            self.s7.start_time = time.time()
+            self.s7.lost_line_timer = 0.0
+        msg_text = f"跳到 S{self.cs}" + ("（等綠燈）" if msg.data == 1 else "（直接發車）")
         self.get_logger().info(f"🚀 [DEBUG] 強制跳到Stage {self.cs}!")
+        push_log(msg_text, "stage")
 
     def yolo_callback(self, msg):
         detection = msg.data.lower()
         confirmed = self._yolo_confirmed(detection)
         if confirmed:
+            log_text = f"[YOLO] {detection} ({YOLO_CONFIRM_THRESH}/{YOLO_WINDOW_SIZE})"
             self.get_logger().info(f"[YOLO 確認] {detection} ({YOLO_CONFIRM_THRESH}/{YOLO_WINDOW_SIZE})")
+            push_log(log_text, "yolo")
 
         if self.cs == 1:
             if confirmed and self.s1.check_start_condition(detection):
                 self.is_running = True
                 self.cs = 2
                 self.get_logger().info("現在進入 Stage 2 (綠燈確認)")
+                push_log("綠燈確認 → 進入 S2", "stage")
                 go_cmd = Twist()
                 go_cmd.linear.x = 0.10
                 self.cmd_vel_pub.publish(go_cmd)
@@ -150,24 +171,29 @@ class MainController(Node):
         elif self.cs == 2:
             if confirmed and detection == 't':
                 self.get_logger().info("Stage 2: T 路口號誌確認，開始茫走")
+                push_log("T 路口確認，開始盲走", "yolo")
             self.s2.process_yolo(detection, confirmed)
-            if confirmed and detection == 'no_entry':
+            # no_entry 單幀觸發，防呆：只有 s2 已完成自轉（turning/done）才有效
+            if detection == 'no_entry' and self.s2.state in ("turning", "done"):
                 memory_direction = self.s2.get_turn_direction()
                 self.s3.inherit_direction(memory_direction)
                 self.cs = 3
-                self.get_logger().info("現在進入 Stage 3 (禁止進入確認)")
+                self.get_logger().info("現在進入 Stage 3 (禁止進入確認，單幀觸發)")
+                push_log("禁止進入確認 → 進入 S3", "stage")
 
         elif self.cs == 3:
             if confirmed and detection == 'obstacle':
                 self.cs = 4
                 self.s4.process_yolo(detection)
                 self.get_logger().info("現在進入 Stage 4 (障礙物確認)")
+                push_log("障礙物確認 → 進入 S4", "stage")
 
         elif self.cs == 4:
             if confirmed and detection == 'parking':
                 self.cs = 5
                 self.s5.process_yolo(detection)
                 self.get_logger().info("現在進入 Stage 5 (停車號誌確認)")
+                push_log("停車號誌確認 → 進入 S5", "stage")
 
         elif self.cs == 5:
             self.s5.process_yolo(detection)
@@ -175,6 +201,7 @@ class MainController(Node):
             if self.s5.state == "done" and confirmed and detection == 'stop':
                 self.cs = 6
                 self.get_logger().info("現在進入 Stage 6 (stop確認)")
+                push_log("STOP 確認 → 進入 S6", "stage")
 
         if self.cs == 6:
             if confirmed and detection == 'stop':
@@ -183,6 +210,7 @@ class MainController(Node):
             if self.s6.state == "done" and confirmed and detection == 'tunnel':
                 self.cs = 7
                 self.get_logger().info("現在進入 Stage 7 (tunnel確認)")
+                push_log("隧道確認 → 進入 S7", "stage")
 
         if self.cs == 7:
             if confirmed and detection == 'tunnel':
@@ -193,11 +221,11 @@ class MainController(Node):
         if self.cs == 5:
             self.s5.process_lidar(msg)
 
-        # 第四關的泛用型雷達避障
-        if self.cs != 4:
-            self.lidar_override = False
-            return
-            
+        # 餵雷達資料給第七關隧道導航（智慧路徑評分 + 緊急防撞）
+        if self.cs == 7:
+            self.s7.process_lidar(msg)
+
+        # ── 計算各方向最近距離（S4/S5/S7 共用）──────────────────
         front_scan = []
         left_scan  = []
         right_scan = []
@@ -211,16 +239,27 @@ class MainController(Node):
             elif 300 <= deg < 340:        # 前右
                 right_scan.append(dist)
 
-        ffd = min(front_scan) if front_scan else float('inf')  # front
-        lfd = min(left_scan)  if left_scan  else float('inf')  # left front
-        rfd = min(right_scan) if right_scan else float('inf')  # right front
+        ffd = min(front_scan) if front_scan else float('inf')
+        lfd = min(left_scan)  if left_scan  else float('inf')
+        rfd = min(right_scan) if right_scan else float('inf')
 
         p4 = shared_params.get("s4", {})
-        danger_zone = p4.get("danger_zone", 0.35)
+        danger_zone = p4.get("danger_zone", 0.20)
         avoid_steer = p4.get("avoid_steer", 0.8)
 
+        # S5/S7：正前方有障礙 → 緊急停車（只停不轉，倒退不受影響）
+        if self.cs in (5, 7):
+            self.lidar_override = ffd < danger_zone
+            self.lidar_steer = 0.0
+            return
+
+        # 其他非 S4 關卡不做光達避障
+        if self.cs != 4:
+            self.lidar_override = False
+            return
+
+        # 第四關：正前方/左前/右前障礙 → 往空間較大的那側閃
         if ffd < danger_zone:
-            # 正前方有障礙 → 往空間較大的那側閃
             self.lidar_override = True
             self.lidar_steer = avoid_steer if lfd > rfd else -avoid_steer
         elif lfd < danger_zone:
@@ -235,9 +274,31 @@ class MainController(Node):
     def image_callback(self, msg):
         try: cv_image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
         except Exception as e: return
-        cv_image = undistort(cv_image)
+        if shared_params.get("line", {}).get("undistort_enabled", 1):
+            cv_image = undistort(cv_image)
 
         final_view = None
+
+        if shared_params.get("emergency_stop", 0):
+            self.cmd_vel_pub.publish(Twist())
+            try:
+                _, final_view, _ = self.line_follower.process_image(cv_image, turn_direction="straight")
+            except Exception:
+                pass
+            if final_view is not None:
+                try:
+                    img_msg = Image()
+                    img_msg.header.stamp = self.get_clock().now().to_msg()
+                    img_msg.height = final_view.shape[0]
+                    img_msg.width = final_view.shape[1]
+                    img_msg.encoding = 'bgr8'
+                    img_msg.is_bigendian = 0
+                    img_msg.step = final_view.shape[1] * 3
+                    img_msg.data = final_view.tobytes()
+                    self.line_view_pub.publish(img_msg)
+                except Exception:
+                    pass
+            return
 
         if not self.is_running:
             try:
@@ -268,25 +329,32 @@ class MainController(Node):
             elif action == "spin":
                 spin_dir = "spin_left" if value > 0 else "spin_right"
                 spin_cmd = Twist()
+                spin_cmd.linear.x = shared_params.get("s2", {}).get("turn_linear", 0.0)
                 spin_cmd.angular.z = float(value)
                 self.cmd_vel_pub.publish(spin_cmd)
                 _, final_view, is_aligned = self.line_follower.process_image(cv_image, turn_direction=spin_dir)
-                self.s2.process_vision(is_aligned) 
+                self.s2.process_vision(is_aligned)
             elif action == "line_follow":
-                twist_cmd, final_view, _ = self.line_follower.process_image(cv_image, turn_direction="straight")
+                turn_dir = self.s2.get_turn_direction() if self.s2.state == "turning" else "straight"
+                twist_cmd, final_view, _ = self.line_follower.process_image(cv_image, turn_direction=turn_dir)
                 self._publish_with_delay(twist_cmd)
 
         elif self.cs == 3:
             action, value = self.s3.get_action()
-            if action == "spin":
+            if action == "stop":
+                stop_cmd = Twist()
+                self.cmd_vel_pub.publish(stop_cmd)
+                _, final_view, _ = self.line_follower.process_image(cv_image, turn_direction="straight")
+            elif action == "spin":
                 spin_dir = "spin_left" if value > 0 else "spin_right"
                 spin_cmd = Twist()
+                spin_cmd.linear.x = 0.0
                 spin_cmd.angular.z = float(value)
                 self.cmd_vel_pub.publish(spin_cmd)
-                _, final_view, is_aligned = self.line_follower.process_image(cv_image, turn_direction=spin_dir)
-                self.s3.process_vision(is_aligned) 
+                _, final_view, _ = self.line_follower.process_image(cv_image, turn_direction=spin_dir)
             elif action == "line_follow":
-                twist_cmd, final_view, _ = self.line_follower.process_image(cv_image, turn_direction="straight")
+                turn_dir = self.s3.get_turn_direction() if self.s3.state == "turning" else "straight"
+                twist_cmd, final_view, _ = self.line_follower.process_image(cv_image, turn_direction=turn_dir)
                 self._publish_with_delay(twist_cmd)
 
         elif self.cs == 4:
@@ -308,8 +376,14 @@ class MainController(Node):
         # 🌟 Stage 5 停車關卡處理 (已完全對接動態視覺回饋)
         elif self.cs == 5:
             action, value = self.s5.get_action()
-            
-            if action == "cmd_vel":
+
+            # 光達緊急防撞：正前方有障礙且正在前進 → 立即停車（倒退不受影響）
+            forward_action = (action == "line_follow") or (action == "cmd_vel" and float(value[0]) > 0)
+            if self.lidar_override and forward_action:
+                self.cmd_vel_pub.publish(Twist())
+                _, final_view, _ = self.line_follower.process_image(cv_image, turn_direction="straight")
+
+            elif action == "cmd_vel":
                 twist_cmd = Twist()
                 twist_cmd.linear.x = float(value[0])
                 twist_cmd.angular.z = float(value[1])
@@ -320,13 +394,13 @@ class MainController(Node):
 
             elif action == "spin":
                 spin_cmd = Twist()
-                spin_cmd.linear.x = 0.0     
+                spin_cmd.linear.x = 0.0
                 spin_cmd.angular.z = float(value)
                 self.cmd_vel_pub.publish(spin_cmd)
                 # 🌟 自轉時，眼睛要死盯著看「雙黃線」有沒有出現在畫面正中央！
                 _, final_view, is_aligned = self.line_follower.process_image(cv_image, turn_direction="double_yellow")
-                self.s5.process_vision(is_aligned) 
-                
+                self.s5.process_vision(is_aligned)
+
             elif action == "line_follow":
                 twist_cmd, final_view, is_aligned = self.line_follower.process_image(cv_image, turn_direction=value)
                 self._publish_with_delay(twist_cmd)
@@ -359,16 +433,24 @@ class MainController(Node):
         elif self.cs == 7:
             self.s7.process_vision(cv_image) # 讓它找紅線
             action, value = self.s7.get_action()
-            
-            if action == "cmd_vel":
+            is_aligned = False
+
+            # 光達緊急防撞：navigating 狀態由 s7 內部自行處理（含轉向閃避）
+            # 其他前進狀態（entering/blind_forward/back_on_track/exiting）在此攔截
+            forward_action = (action == "line_follow") or (action == "cmd_vel" and float(value[0]) > 0)
+            if self.lidar_override and self.s7.state not in ("navigating", "done") and forward_action:
+                self.cmd_vel_pub.publish(Twist())
+                _, final_view, is_aligned = self.line_follower.process_image(cv_image, turn_direction="straight")
+
+            elif action == "cmd_vel":
                 twist_cmd = Twist()
                 twist_cmd.linear.x = float(value[0])
                 twist_cmd.angular.z = float(value[1])
                 self.cmd_vel_pub.publish(twist_cmd)
-                _, final_view, _ = self.line_follower.process_image(cv_image, turn_direction="straight")
-                
+                _, final_view, is_aligned = self.line_follower.process_image(cv_image, turn_direction="straight")
+
             elif action == "line_follow":
-                twist_cmd, final_view, _ = self.line_follower.process_image(cv_image, turn_direction=value)
+                twist_cmd, final_view, is_aligned = self.line_follower.process_image(cv_image, turn_direction=value)
                 self._publish_with_delay(twist_cmd)
 
             elif action == "stop":
@@ -377,6 +459,8 @@ class MainController(Node):
                 self.cmd_vel_pub.publish(twist_cmd)
                 self.is_running = False # 🌟 切斷動力，完美收官！
                 _, final_view, _ = self.line_follower.process_image(cv_image, turn_direction="straight")
+
+            self.s7.process_alignment(is_aligned)
 
         if final_view is not None:
             try:

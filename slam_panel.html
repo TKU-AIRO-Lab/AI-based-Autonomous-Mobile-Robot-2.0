@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SLAM Navigator</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;700&display=swap');
+:root{
+  --bg:#0b0f19;--s1:#121a2b;--s2:#182035;--bd:#263048;
+  --tx:#dce4f0;--tx2:#7b8ba5;--acc:#2d9cdb;--acc2:rgba(45,156,219,.25);
+  --grn:#27ae60;--grn2:rgba(39,174,96,.25);--red:#e74c3c;--ylw:#f39c12;--r:6px
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Noto Sans TC','IBM Plex Mono',sans-serif;background:var(--bg);color:var(--tx);height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+/* ── Top bar ── */
+.top{display:flex;align-items:center;justify-content:space-between;padding:8px 16px;background:rgba(11,15,25,.95);backdrop-filter:blur(10px);border-bottom:1px solid var(--bd);flex-shrink:0}
+.top h1{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;letter-spacing:1.5px;color:var(--acc)}
+.top-right{display:flex;align-items:center;gap:12px}
+.mode-badge{padding:3px 10px;border-radius:12px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.5px;border:1px solid}
+.mode-badge.live{color:var(--grn);border-color:var(--grn);background:var(--grn2)}
+.mode-badge.offline{color:var(--ylw);border-color:var(--ylw);background:rgba(243,156,18,.15)}
+.btn-back{padding:5px 14px;background:transparent;border:1px solid var(--bd);border-radius:var(--r);color:var(--tx2);font-family:'IBM Plex Mono',monospace;font-size:11px;text-decoration:none;transition:.2s;cursor:pointer}
+.btn-back:hover{color:var(--tx);border-color:var(--acc)}
+
+/* ── Main layout ── */
+.main{display:flex;flex:1;overflow:hidden}
+
+/* ── Map area ── */
+.map-area{position:relative;flex:1;display:flex;align-items:center;justify-content:center;background:#000;overflow:hidden}
+.map-area img{max-width:100%;max-height:100%;display:block;object-fit:contain}
+.map-overlay{position:absolute;inset:0;cursor:crosshair}
+.click-hint{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);background:rgba(11,15,25,.8);border:1px solid var(--bd);border-radius:var(--r);padding:4px 12px;font-size:10px;color:var(--tx2);pointer-events:none;font-family:'IBM Plex Mono',monospace}
+.click-marker{position:absolute;pointer-events:none;transform:translate(-50%,-50%)}
+.click-marker svg{width:20px;height:20px}
+
+/* ── Right panel ── */
+.side{width:280px;flex-shrink:0;display:flex;flex-direction:column;background:var(--s1);border-left:1px solid var(--bd);overflow-y:auto}
+
+.side-section{padding:12px 14px;border-bottom:1px solid var(--bd)}
+.side-title{font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:var(--tx2);letter-spacing:1.2px;text-transform:uppercase;margin-bottom:10px}
+
+/* Status rows */
+.stat-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:11px}
+.stat-row .lbl{color:var(--tx2)}
+.stat-row .val{font-family:'IBM Plex Mono',monospace;color:var(--acc);font-weight:500}
+.stat-row .val.none{color:var(--tx2)}
+
+/* Exit control */
+.exit-info{background:var(--s2);border:1px solid var(--bd);border-radius:var(--r);padding:8px 10px;margin-bottom:8px;font-family:'IBM Plex Mono',monospace;font-size:10px}
+.exit-info .exit-mode{font-size:11px;font-weight:600;margin-bottom:4px}
+.exit-info .exit-mode.auto{color:var(--acc)}
+.exit-info .exit-mode.custom{color:var(--ylw)}
+.exit-info .exit-coord{color:var(--tx2)}
+
+/* Buttons */
+.btn{width:100%;padding:7px;border:none;border-radius:var(--r);font-size:12px;font-weight:600;cursor:pointer;transition:.15s;font-family:'IBM Plex Mono',monospace;letter-spacing:.3px;margin-bottom:6px}
+.btn:last-child{margin-bottom:0}
+.btn-primary{background:var(--acc);color:#fff}
+.btn-primary:hover{opacity:.85}
+.btn-danger{background:transparent;border:1px solid var(--red);color:var(--red)}
+.btn-danger:hover{background:rgba(231,76,60,.15)}
+.btn-neutral{background:transparent;border:1px solid var(--bd);color:var(--tx2)}
+.btn-neutral:hover{color:var(--tx);border-color:var(--acc)}
+.btn-warn{background:transparent;border:1px solid var(--ylw);color:var(--ylw)}
+.btn-warn:hover{background:rgba(243,156,18,.15)}
+
+/* Map name input */
+.input-row{display:flex;gap:6px;margin-bottom:8px}
+.input-row input{flex:1;padding:6px 8px;background:var(--bg);border:1px solid var(--bd);border-radius:var(--r);color:var(--tx);font-family:'IBM Plex Mono',monospace;font-size:11px;outline:0}
+.input-row input:focus{border-color:var(--acc)}
+.input-row .btn{width:auto;padding:6px 12px;margin-bottom:0}
+
+/* Map list */
+.map-list{display:flex;flex-direction:column;gap:4px;max-height:200px;overflow-y:auto}
+.map-item{display:flex;align-items:center;gap:6px;padding:6px 8px;background:var(--s2);border:1px solid var(--bd);border-radius:var(--r);cursor:pointer;transition:.15s}
+.map-item:hover{border-color:var(--acc)}
+.map-item.selected{border-color:var(--acc);background:var(--acc2)}
+.map-item .mi-name{flex:1;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500}
+.map-item .mi-meta{font-size:9px;color:var(--tx2)}
+.map-item .mi-del{padding:2px 6px;background:transparent;border:1px solid var(--bd);border-radius:3px;color:var(--tx2);font-size:10px;cursor:pointer;flex-shrink:0}
+.map-item .mi-del:hover{border-color:var(--red);color:var(--red)}
+.no-maps{font-size:11px;color:var(--tx2);text-align:center;padding:12px 0}
+
+/* Toast */
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--s1);border:1px solid var(--bd);border-radius:var(--r);padding:8px 18px;font-size:12px;color:var(--tx);z-index:999;transition:opacity .3s;pointer-events:none}
+.toast.err{border-color:var(--red);color:var(--red)}
+.toast.ok{border-color:var(--grn);color:var(--grn)}
+</style>
+</head>
+<body>
+
+<!-- Top bar -->
+<div class="top">
+  <h1>SLAM NAVIGATOR</h1>
+  <div class="top-right">
+    <span class="mode-badge live" id="modeBadge">LIVE</span>
+    <a href="/" class="btn-back">返回主頁</a>
+  </div>
+</div>
+
+<!-- Main -->
+<div class="main">
+
+  <!-- Map + click overlay -->
+  <div class="map-area" id="mapArea">
+    <img id="slamImg" src="/stream/slam" alt="SLAM Map">
+    <canvas class="map-overlay" id="mapCanvas"></canvas>
+    <div class="click-hint" id="clickHint">點擊地圖設定自訂出口點</div>
+  </div>
+
+  <!-- Right panel -->
+  <div class="side">
+
+    <!-- Status -->
+    <div class="side-section">
+      <div class="side-title">即時狀態</div>
+      <div class="stat-row">
+        <span class="lbl">導航角度</span>
+        <span class="val" id="navAngle">--</span>
+      </div>
+      <div class="stat-row">
+        <span class="lbl">模式</span>
+        <span class="val" id="modeText">即時 SLAM</span>
+      </div>
+      <div class="stat-row">
+        <span class="lbl">自訂出口</span>
+        <span class="val none" id="customExitText">未設定</span>
+      </div>
+    </div>
+
+    <!-- Exit control -->
+    <div class="side-section">
+      <div class="side-title">出口設定</div>
+      <div class="exit-info">
+        <div class="exit-mode auto" id="exitModeLabel">自動偵測出口</div>
+        <div class="exit-coord" id="exitCoord">點擊地圖可設定自訂出口點</div>
+      </div>
+      <button class="btn btn-warn" onclick="clearExit()">清除自訂出口（回到自動）</button>
+    </div>
+
+    <!-- Save map -->
+    <div class="side-section">
+      <div class="side-title">儲存地圖</div>
+      <div class="input-row">
+        <input type="text" id="saveMapName" placeholder="地圖名稱" value="tunnel_map">
+        <button class="btn btn-primary" onclick="saveMap()" style="width:auto;padding:6px 12px;margin-bottom:0">儲存</button>
+      </div>
+      <div style="font-size:10px;color:var(--tx2)">儲存至 ~/maps/{name}.json</div>
+    </div>
+
+    <!-- Map list / load -->
+    <div class="side-section" style="flex:1">
+      <div class="side-title" style="display:flex;justify-content:space-between;align-items:center">
+        <span>已儲存地圖</span>
+        <button class="btn-back" onclick="refreshMapList()" style="padding:2px 8px;font-size:10px">重新整理</button>
+      </div>
+      <div class="map-list" id="mapList">
+        <div class="no-maps">載入中...</div>
+      </div>
+      <div style="margin-top:8px;display:flex;flex-direction:column;gap:6px">
+        <button class="btn btn-primary" style="margin-bottom:0" onclick="loadSelectedMap()">載入選取地圖</button>
+        <button class="btn btn-neutral" style="margin-bottom:0" onclick="unloadMap()">切回即時 SLAM</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="toast" id="toast" style="opacity:0"></div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────
+let selectedMap = null;
+let customExitSet = false;
+let statusTimer  = null;
+let mapImg       = document.getElementById('slamImg');
+let canvas       = document.getElementById('mapCanvas');
+let ctx          = canvas.getContext('2d');
+let clickMarkerX = -1;
+let clickMarkerY = -1;
+
+// ── Toast ──────────────────────────────────────────────────────
+let toastTimer = null;
+function toast(msg, type='info') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast' + (type === 'err' ? ' err' : type === 'ok' ? ' ok' : '');
+  el.style.opacity = '1';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.style.opacity = '0'; }, 2500);
+}
+
+// ── Canvas overlay resize ──────────────────────────────────────
+function resizeCanvas() {
+  const area = document.getElementById('mapArea');
+  canvas.width  = area.clientWidth;
+  canvas.height = area.clientHeight;
+  drawMarker();
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+function drawMarker() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (clickMarkerX < 0) return;
+  const x = clickMarkerX, y = clickMarkerY;
+  const r = 10;
+  ctx.strokeStyle = '#f39c12';
+  ctx.lineWidth   = 2;
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x - r - 4, y); ctx.lineTo(x + r + 4, y);
+  ctx.moveTo(x, y - r - 4); ctx.lineTo(x, y + r + 4);
+  ctx.stroke();
+}
+
+// ── Map click → set exit ───────────────────────────────────────
+canvas.addEventListener('click', async function(e) {
+  const rect   = mapImg.getBoundingClientRect();
+  const natW   = mapImg.naturalWidth;
+  const natH   = mapImg.naturalHeight;
+  if (!natW || !natH) { toast('地圖尚未載入', 'err'); return; }
+
+  // 點擊位置相對於圖片實際顯示區域
+  const scaleX = natW / rect.width;
+  const scaleY = natH / rect.height;
+  const imgX   = Math.round((e.clientX - rect.left) * scaleX);
+  const imgY   = Math.round((e.clientY - rect.top)  * scaleY);
+
+  // 記錄 canvas 上的像素位置畫十字
+  clickMarkerX = e.clientX - canvas.getBoundingClientRect().left;
+  clickMarkerY = e.clientY - canvas.getBoundingClientRect().top;
+  drawMarker();
+
+  try {
+    const r = await fetch('/api/slam/set_exit', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({x: imgX, y: imgY})
+    });
+    const d = await r.json();
+    if (!r.ok) { toast(d.error || '設定失敗', 'err'); return; }
+    customExitSet = true;
+    updateExitUI(true, d.grid);
+    toast(`自訂出口已設定：格子 [${d.grid[0]}, ${d.grid[1]}]`, 'ok');
+  } catch(err) {
+    toast('網路錯誤：' + err.message, 'err');
+  }
+});
+
+function updateExitUI(isCustom, grid) {
+  const lbl   = document.getElementById('exitModeLabel');
+  const coord = document.getElementById('exitCoord');
+  const ctxt  = document.getElementById('customExitText');
+  if (isCustom && grid) {
+    lbl.textContent   = '自訂出口';
+    lbl.className     = 'exit-mode custom';
+    coord.textContent = `格子座標：[${grid[0]}, ${grid[1]}]`;
+    ctxt.textContent  = `[${grid[0]}, ${grid[1]}]`;
+    ctxt.className    = 'val';
+  } else {
+    lbl.textContent   = '自動偵測出口';
+    lbl.className     = 'exit-mode auto';
+    coord.textContent = '點擊地圖可設定自訂出口點';
+    ctxt.textContent  = '未設定';
+    ctxt.className    = 'val none';
+    clickMarkerX = -1;
+    drawMarker();
+  }
+}
+
+// ── Clear exit ─────────────────────────────────────────────────
+async function clearExit() {
+  try {
+    await fetch('/api/slam/clear_exit', {method: 'POST'});
+    customExitSet = false;
+    updateExitUI(false, null);
+    toast('已切回自動偵測出口', 'ok');
+  } catch(e) { toast('操作失敗', 'err'); }
+}
+
+// ── Status polling ─────────────────────────────────────────────
+async function pollStatus() {
+  try {
+    const r = await fetch('/api/slam/status');
+    if (!r.ok) return;
+    const d = await r.json();
+
+    // 導航角度
+    const angleEl = document.getElementById('navAngle');
+    if (d.nav_angle !== null && d.nav_angle !== undefined) {
+      angleEl.textContent = d.nav_angle.toFixed(1) + ' deg';
+      angleEl.className   = 'val';
+    } else {
+      angleEl.textContent = '--';
+      angleEl.className   = 'val none';
+    }
+
+    // 模式
+    const isOffline = d.offline_mode;
+    const badge    = document.getElementById('modeBadge');
+    const modeTxt  = document.getElementById('modeText');
+    if (isOffline) {
+      badge.textContent  = 'OFFLINE';
+      badge.className    = 'mode-badge offline';
+      modeTxt.textContent = '離線地圖';
+    } else {
+      badge.textContent  = 'LIVE';
+      badge.className    = 'mode-badge live';
+      modeTxt.textContent = '即時 SLAM';
+    }
+
+    // 自訂出口（伺服器端同步）
+    if (d.custom_exit) {
+      updateExitUI(true, d.custom_exit);
+    } else if (!customExitSet) {
+      updateExitUI(false, null);
+    }
+  } catch(e) {}
+}
+
+// ── Map list ───────────────────────────────────────────────────
+async function refreshMapList() {
+  try {
+    const r = await fetch('/api/slam/maps');
+    const maps = await r.json();
+    renderMapList(maps);
+  } catch(e) { toast('無法取得地圖清單', 'err'); }
+}
+
+function renderMapList(maps) {
+  const el = document.getElementById('mapList');
+  if (!maps.length) {
+    el.innerHTML = '<div class="no-maps">尚無儲存的地圖</div>';
+    selectedMap = null;
+    return;
+  }
+  el.innerHTML = maps.map(m => `
+    <div class="map-item${selectedMap === m.name ? ' selected' : ''}"
+         onclick="selectMap('${m.name}', this)">
+      <div style="flex:1;min-width:0">
+        <div class="mi-name">${m.name}</div>
+        <div class="mi-meta">${m.saved_at || ''} &nbsp; ${m.size_kb} KB</div>
+      </div>
+      <button class="mi-del" onclick="event.stopPropagation();deleteMap('${m.name}')">刪除</button>
+    </div>
+  `).join('');
+}
+
+function selectMap(name, el) {
+  selectedMap = name;
+  document.querySelectorAll('.map-item').forEach(i => i.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+async function loadSelectedMap() {
+  if (!selectedMap) { toast('請先選取一個地圖', 'err'); return; }
+  try {
+    const r = await fetch('/api/slam/load_map', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({name: selectedMap})
+    });
+    const d = await r.json();
+    if (!r.ok) { toast(d.error || '載入失敗', 'err'); return; }
+    toast(`地圖已載入：${selectedMap}（離線模式）`, 'ok');
+    // 強制刷新 MJPEG 串流
+    mapImg.src = '/stream/slam?t=' + Date.now();
+  } catch(e) { toast('載入失敗：' + e.message, 'err'); }
+}
+
+async function unloadMap() {
+  try {
+    await fetch('/api/slam/unload_map', {method: 'POST'});
+    toast('已切回即時 SLAM 模式', 'ok');
+    mapImg.src = '/stream/slam?t=' + Date.now();
+  } catch(e) { toast('操作失敗', 'err'); }
+}
+
+async function saveMap() {
+  const name = document.getElementById('saveMapName').value.trim();
+  if (!name) { toast('請輸入地圖名稱', 'err'); return; }
+  try {
+    const r = await fetch('/api/slam/save_map', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({name})
+    });
+    const d = await r.json();
+    if (!r.ok) { toast(d.error || '儲存失敗', 'err'); return; }
+    toast(`地圖已儲存：${name}`, 'ok');
+    refreshMapList();
+  } catch(e) { toast('儲存失敗：' + e.message, 'err'); }
+}
+
+async function deleteMap(name) {
+  if (!confirm(`確定刪除地圖「${name}」？`)) return;
+  try {
+    const r = await fetch('/api/slam/delete_map', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({name})
+    });
+    const d = await r.json();
+    if (!r.ok) { toast(d.error || '刪除失敗', 'err'); return; }
+    if (selectedMap === name) selectedMap = null;
+    toast(`已刪除：${name}`, 'ok');
+    refreshMapList();
+  } catch(e) { toast('刪除失敗', 'err'); }
+}
+
+// ── Init ───────────────────────────────────────────────────────
+refreshMapList();
+pollStatus();
+setInterval(pollStatus, 2000);
+</script>
+</body>
+</html>

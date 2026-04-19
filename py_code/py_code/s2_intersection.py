@@ -6,13 +6,13 @@ class IntersectionStage:
         self.state = "normal" 
         self.turn_direction = "straight"
         self.t_sign_seen_time = 0.0
-        self.approach_duration = 4.5 
+        self.approach_duration = 7.5
         
         self.spin_start_time = 0.0
         self.spin_speed = 0.5
         
         # 🛡️ 【升級】：將盲轉時間拆分為左轉與右轉獨立控制！
-        self.blind_spin_duration_left = 1.57   # 左轉 45 度需要的時間
+        self.blind_spin_duration_left = 1.2   # 左轉 45 度需要的時間
         self.blind_spin_duration_right = 0.70  # 右轉 20 度需要的時間
 
     def process_yolo(self, yolo_detection, confirmed=False):
@@ -56,7 +56,7 @@ class IntersectionStage:
 
     def get_action(self):
         p = shared_params.get("s2", {})
-        self.approach_duration = p.get("approach_duration", 4.5)
+        self.approach_duration = p.get("approach_duration", 7.5)
         self.spin_speed = p.get("spin_speed", 0.5)
         self.blind_spin_duration_left = p.get("blind_spin_duration_left", 1.57)
         self.blind_spin_duration_right = p.get("blind_spin_duration_right", 0.70)
@@ -69,7 +69,7 @@ class IntersectionStage:
             angular_z = self.spin_speed if self.turn_direction == "left" else -self.spin_speed
             return "spin", angular_z
         elif self.state == "turning":
-            return "line_follow", "straight"
+            return "line_follow", self.turn_direction
         else:
             return "line_follow", "straight"
             
@@ -79,3 +79,5 @@ class IntersectionStage:
     def reset(self):
         self.state = "normal"
         self.turn_direction = "straight"
+        self.t_sign_seen_time = 0.0
+        self.spin_start_time = 0.0

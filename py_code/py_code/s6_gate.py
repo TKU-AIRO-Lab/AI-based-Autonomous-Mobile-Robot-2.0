@@ -16,7 +16,7 @@ class GateStage:
         # 🔴 柵欄紅色的像素閾值 (Threshold)
         # 如果畫面中的紅色像素超過這個數字，就認定「柵欄放下來了」
         # (這個數字你可以根據實際鏡頭解析度去微調，通常 1000~3000 是一個好起點)
-        self.red_threshold = 2000 
+        self.red_threshold = 4000 
 
     def print_state(self):
         if self.state != self.last_printed_state:
@@ -103,3 +103,11 @@ class GateStage:
             return "line_follow", "straight"
 
         return "line_follow", "straight"
+
+    def reset(self):
+        self.state = "normal"
+        self.start_time = 0.0
+        self.barrier_clear_time = 0.0
+        self.last_printed_state = ""
+        self.is_barrier_down = False
+        self.red_pixel_count = 0

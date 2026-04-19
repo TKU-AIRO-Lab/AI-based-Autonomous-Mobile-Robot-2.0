@@ -22,9 +22,9 @@ body{font-family:'Noto Sans TC','IBM Plex Mono',sans-serif;background:var(--bg);
 .conn input:focus{border-color:var(--acc)}
 .btnc{padding:5px 14px;background:var(--acc);color:#fff;border:none;border-radius:var(--r);font-size:11px;font-weight:600;cursor:pointer}
 
-.wrap{max-width:1100px;margin:0 auto;padding:12px 16px}
+.wrap{max-width:1600px;margin:0 auto;padding:12px 16px}
 
-/* ── 三欄影像 + 光達 ── */
+/* ── 三欄：影像 + 光達 + Log ── */
 .cam-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px}
 .cam-col{background:var(--s1);border:1px solid var(--bd);border-radius:8px;overflow:hidden}
 .cam-col .vl{padding:5px 10px;font-size:10px;font-weight:600;color:var(--tx2);letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:5px}
@@ -36,8 +36,19 @@ body{font-family:'Noto Sans TC','IBM Plex Mono',sans-serif;background:var(--bg);
 .popbtn{margin-left:auto;padding:2px 7px;background:transparent;border:1px solid var(--bd);border-radius:3px;color:var(--tx2);font-size:10px;cursor:pointer;transition:.2s;flex-shrink:0}
 .popbtn:hover{color:var(--tx);border-color:var(--acc)}
 /* 光達 canvas */
-#lidarCanvas{width:100%;aspect-ratio:1/1;display:block;background:#000;cursor:default}
+#lidarCanvas{width:100%;aspect-ratio:1/1;display:block;background:#0b0f19;cursor:default}
 .lidar-info{padding:4px 10px;border-top:1px solid var(--bd);font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--tx2);min-height:22px}
+/* ── 光達主 + Log sidebar 混合欄 ── */
+.lidar-log-col{display:flex;flex-direction:row;overflow:hidden}
+.lidar-main-wrap{flex:1;min-width:0;display:flex;flex-direction:column}
+.lidar-main-wrap #lidarCanvas{width:100%;aspect-ratio:1/1}
+.log-sidebar{width:155px;flex-shrink:0;border-left:1px solid var(--bd);display:flex;flex-direction:column;overflow:hidden}
+.log-sidebar .vl{padding:5px 8px;font-size:10px}
+.log-sidebar .log-body{flex:1;overflow-y:auto;font-family:'IBM Plex Mono',monospace;font-size:10px;line-height:1.7;padding:5px 7px;scrollbar-width:thin;scrollbar-color:var(--bd) transparent}
+.log-sidebar .log-body::-webkit-scrollbar{width:3px}.log-sidebar .log-body::-webkit-scrollbar-thumb{background:var(--bd);border-radius:2px}
+/* 黃線/白線偵測區塊 */
+.color-view-section{display:flex;flex-direction:column}
+.color-view-section .cam-params{padding:6px 8px;border-top:1px solid var(--bd)}
 
 /* ── 關卡 tabs ── */
 .tabs{display:flex;overflow-x:auto;background:var(--s1);border:1px solid var(--bd);border-radius:8px 8px 0 0;scrollbar-width:none}
@@ -72,6 +83,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;heigh
 .btns{padding:6px 18px;border:none;border-radius:var(--r);font-weight:600;font-size:12px;cursor:pointer;transition:.15s}
 .btn-send{background:var(--grn);color:#fff}.btn-send:hover{box-shadow:0 2px 10px var(--grn2)}
 .btn-fetch{background:var(--s2);color:var(--tx);border:1px solid var(--bd)}
+.btn-save{background:#e67e22;color:#fff}.btn-save:hover{box-shadow:0 2px 10px rgba(230,126,34,.4)}
 
 .toast{position:fixed;bottom:60px;right:16px;padding:8px 14px;border-radius:var(--r);font-size:11px;font-weight:600;opacity:0;transform:translateY(8px);transition:.3s;pointer-events:none;z-index:100}
 .toast.show{opacity:1;transform:translateY(0)}.toast.ok{background:var(--grn);color:#fff}.toast.err{background:var(--red);color:#fff}
@@ -88,6 +100,54 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;heigh
 .stage-btn:hover{color:var(--tx);border-color:var(--acc)}
 .stage-btn.active{background:var(--acc2);color:var(--acc);border-color:var(--acc);box-shadow:0 0 8px rgba(45,156,219,.3)}
 
+/* ── 事件 log ── */
+.log-wrap{background:var(--s1);border:1px solid var(--bd);border-radius:8px;padding:10px 12px;margin-bottom:12px}
+.log-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.log-hdr .sc-title{font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:var(--tx2);letter-spacing:1.2px;text-transform:uppercase}
+.log-body{height:130px;overflow-y:auto;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:1.7;scrollbar-width:thin;scrollbar-color:var(--bd) transparent}
+.log-body::-webkit-scrollbar{width:4px}.log-body::-webkit-scrollbar-thumb{background:var(--bd);border-radius:2px}
+.log-entry{display:flex;gap:8px;padding:1px 0}
+.log-entry .lt{color:var(--tx2);flex-shrink:0}
+.log-entry.yolo .lm{color:var(--acc)}
+.log-entry.stage .lm{color:var(--grn);font-weight:600}
+.log-entry.error .lm{color:var(--red);font-weight:600}
+.log-entry.info .lm{color:var(--tx)}
+.log-clear{padding:2px 8px;background:transparent;border:1px solid var(--bd);border-radius:3px;color:var(--tx2);font-size:10px;cursor:pointer}
+.log-clear:hover{color:var(--tx);border-color:var(--acc)}
+
+/* ── 事件 log ── */
+.log-body{flex:1;overflow-y:auto;font-family:'IBM Plex Mono',monospace;font-size:10.5px;line-height:1.75;padding:6px 8px;scrollbar-width:thin;scrollbar-color:var(--bd) transparent}
+.log-body::-webkit-scrollbar{width:3px}.log-body::-webkit-scrollbar-thumb{background:var(--bd);border-radius:2px}
+.log-entry{display:flex;gap:6px;padding:0}
+.log-entry .lt{color:var(--tx2);flex-shrink:0}
+.log-entry.yolo .lm{color:var(--acc)}
+.log-entry.stage .lm{color:var(--grn);font-weight:600}
+.log-entry.error .lm{color:var(--red);font-weight:600}
+.log-entry.info .lm{color:var(--tx)}
+.log-hdr-row{display:flex;align-items:center;justify-content:space-between}
+.log-clear{padding:1px 6px;background:transparent;border:1px solid var(--bd);border-radius:3px;color:var(--tx2);font-size:9px;cursor:pointer}
+.log-clear:hover{color:var(--tx);border-color:var(--acc)}
+.cam-col.log-col{display:flex;flex-direction:column}
+
+/* ── 光達/SLAM toggle switch ── */
+.slam-toggle{position:relative;display:inline-flex;align-items:center;cursor:pointer;margin:0 4px;flex-shrink:0}
+.slam-toggle input{opacity:0;width:0;height:0;position:absolute}
+.slam-toggle-slider{display:block;width:30px;height:16px;background:var(--bd);border-radius:8px;transition:.2s;position:relative}
+.slam-toggle-slider:before{content:'';position:absolute;height:12px;width:12px;left:2px;bottom:2px;background:var(--tx2);border-radius:50%;transition:.2s}
+.slam-toggle input:checked+.slam-toggle-slider{background:var(--acc)}
+.slam-toggle input:checked+.slam-toggle-slider:before{transform:translateX(14px);background:#fff}
+
+/* ── 緊急停止按鈕 ── */
+.estop-wrap{display:flex;align-items:center;gap:8px}
+.btn-estop{padding:6px 18px;border:none;border-radius:var(--r);font-weight:700;font-size:13px;cursor:pointer;transition:.15s;letter-spacing:.5px}
+.btn-estop-red{background:var(--red);color:#fff;box-shadow:0 0 12px rgba(231,76,60,.5)}
+.btn-estop-red:hover{box-shadow:0 0 20px rgba(231,76,60,.8)}
+.btn-estop-red.active{animation:estop-blink .6s infinite}
+@keyframes estop-blink{0%,100%{box-shadow:0 0 12px rgba(231,76,60,.5)}50%{box-shadow:0 0 28px rgba(231,76,60,1)}}
+.btn-estop-grn{background:var(--grn);color:#fff}
+.btn-estop-grn:hover{box-shadow:0 0 12px var(--grn2)}
+
+@media(max-width:1100px){.cam-row{grid-template-columns:1fr 1fr}}
 @media(max-width:900px){.cam-row{grid-template-columns:1fr 1fr}}
 @media(max-width:600px){.cam-row{grid-template-columns:1fr}.pr{grid-template-columns:1fr 1fr 50px;gap:4px}}
 </style>
@@ -96,6 +156,13 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;heigh
 
 <div class="top">
   <h1>TB3 RACE TUNER</h1>
+  <div style="display:flex;align-items:center;gap:10px">
+    <a href="/slam" target="_blank" style="padding:5px 14px;background:transparent;border:1px solid var(--acc);border-radius:var(--r);color:var(--acc);font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;text-decoration:none;letter-spacing:.5px;transition:.2s" onmouseover="this.style.background='var(--acc2)'" onmouseout="this.style.background='transparent'">SLAM MAP</a>
+    <div class="estop-wrap">
+      <button class="btn-estop btn-estop-red" id="estopBtn" onclick="doEmergencyStop()">⛔ 緊急停止</button>
+      <button class="btn-estop btn-estop-grn" id="resumeBtn" onclick="doEmergencyResume()" style="display:none">▶ 恢復行駛</button>
+    </div>
+  </div>
   <div class="st"><div class="dot" id="dot"></div><span id="stxt">未連線</span></div>
 </div>
 <div class="conn">
@@ -105,33 +172,94 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;heigh
 </div>
 
 <div class="wrap">
-  <!-- ====== 三欄：YOLO / 循線 / 光達 ====== -->
+  <!-- ====== 三欄：YOLO+光達 / 循線 / 黃白線+Log ====== -->
   <div class="cam-row">
-    <!-- YOLO -->
+    <!-- 欄1：YOLO + 光達掃描（完整） -->
     <div class="cam-col">
       <div class="vl"><div class="live"></div>YOLO 辨識畫面<button class="popbtn" onclick="popout('yolo')" title="獨立視窗">⊞</button></div>
       <img id="yoloImg" src="" alt="YOLO">
       <div class="cam-params" id="yoloParams"></div>
+      <!-- 光達/SLAM 標題列（含切換 toggle） -->
+      <div class="vl" style="margin-top:4px">
+        <div class="live lidar-live" id="lidarLive"></div>
+        <span id="lidarSlamTitle">光達掃描</span>
+        <label class="slam-toggle" title="切換 SLAM 地圖">
+          <input type="checkbox" id="slamToggleSwitch" onchange="toggleLidarSlam()">
+          <span class="slam-toggle-slider"></span>
+        </label>
+        <span style="font-size:10px;color:var(--tx2);margin-right:4px">SLAM</span>
+        <button class="popbtn" id="lidarPopbtn" onclick="popout('lidar')" title="獨立視窗">⊞</button>
+        <button class="popbtn" id="slamPopbtn" style="display:none" onclick="window.open(srv()+'/popout/map','_blank','width=600,height=640')" title="放大">⊞ 放大</button>
+      </div>
+      <!-- 光達視窗 -->
+      <div id="lidarView">
+        <canvas id="lidarCanvas" width="400" height="400"></canvas>
+        <div class="lidar-info">
+          <div style="display:flex;align-items:center;gap:6px;padding:2px 0">
+            <span style="flex-shrink:0">範圍</span>
+            <input type="range" id="lidarRange" min="1" max="20" step="0.5" value="8"
+              oninput="document.getElementById('lidarRangeVal').textContent=this.value+' m';drawLidar()"
+              style="flex:1">
+            <span id="lidarRangeVal" style="width:36px;text-align:right;flex-shrink:0">8 m</span>
+          </div>
+          <div id="lidarInfo" style="color:var(--tx2)">未連線</div>
+        </div>
+      </div>
+      <!-- SLAM 視窗（預設隱藏，toggle ON 後顯示） -->
+      <div id="slamView" style="display:none">
+        <div style="display:flex;gap:4px;padding:4px 8px;flex-wrap:wrap;align-items:center;background:var(--s2);border-bottom:1px solid var(--bd)">
+          <button id="slamBtnStart" onclick="setSlamMode('start')"
+            style="padding:3px 10px;font-size:11px;border-radius:4px;border:1px solid #0c0;color:#0c0;background:transparent;cursor:pointer;transition:.15s">
+            ● 設起點</button>
+          <button id="slamBtnGoal" onclick="setSlamMode('goal')"
+            style="padding:3px 10px;font-size:11px;border-radius:4px;border:1px solid #cc0;color:#cc0;background:transparent;cursor:pointer;transition:.15s">
+            ★ 設終點</button>
+          <button onclick="clearSlamPoints()"
+            style="padding:3px 10px;font-size:11px;border-radius:4px;border:1px solid #888;color:#aaa;background:transparent;cursor:pointer">
+            ✕ 清除</button>
+          <span style="flex:1"></span>
+          <button onclick="loadTunnelMap()"
+            style="padding:3px 10px;font-size:11px;border-radius:4px;border:1px solid #48f;color:#48f;background:transparent;cursor:pointer">
+            ⬆ 載入地圖</button>
+        </div>
+        <div id="slamModeHint" style="font-size:10px;color:var(--tx2);padding:3px 8px;background:var(--s2);border-bottom:1px solid var(--bd)">點擊地圖設定起點/終點</div>
+        <div style="position:relative;background:#000;overflow:hidden">
+          <img id="slamMapImg" src="" alt="SLAM Map"
+               style="width:100%;display:block;aspect-ratio:1/1;object-fit:contain;background:#111;cursor:default"
+               onclick="onSlamMapClick(event)">
+          <div style="position:absolute;bottom:4px;left:6px;font-family:monospace;font-size:9px;color:#7b8ba5;pointer-events:none">
+            橘圓=機器人 &nbsp;|&nbsp; 綠圓=起點 &nbsp;|&nbsp; ★=終點 &nbsp;|&nbsp; 紅線=A*
+          </div>
+        </div>
+      </div>
     </div>
-    <!-- 循線 -->
+    <!-- 欄2：循線 -->
     <div class="cam-col">
       <div class="vl"><div class="live"></div>循線 Debug 畫面<button class="popbtn" id="undistortToggle" onclick="toggleUndistort()" title="切換鏡頭校正" style="color:var(--grn);border-color:var(--grn)">校正 ON</button><button class="popbtn" onclick="popout('line')" title="獨立視窗">⊞</button></div>
       <img id="lineImg" src="" alt="Line">
       <div class="cam-params" id="lineParams"></div>
     </div>
-    <!-- 光達 -->
-    <div class="cam-col">
-      <div class="vl"><div class="live lidar-live" id="lidarLive"></div>光達掃描<button class="popbtn" onclick="popout('lidar')" title="獨立視窗">⊞</button></div>
-      <canvas id="lidarCanvas" width="400" height="400"></canvas>
-      <div class="lidar-info">
-        <div style="display:flex;align-items:center;gap:8px;padding:2px 0">
-          <span style="flex-shrink:0">顯示範圍</span>
-          <input type="range" id="lidarRange" min="1" max="20" step="0.5" value="8"
-            oninput="document.getElementById('lidarRangeVal').textContent=this.value+' m';drawLidar()"
-            style="flex:1">
-          <span id="lidarRangeVal" style="width:40px;text-align:right;flex-shrink:0">8 m</span>
+    <!-- 欄3：黃線偵測 + 白線偵測 + Log sidebar -->
+    <div class="cam-col lidar-log-col">
+      <!-- 左：黃線 + 白線 stacked -->
+      <div class="lidar-main-wrap">
+        <!-- 黃線偵測 -->
+        <div class="color-view-section">
+          <div class="vl"><div class="live" id="yellowLive"></div>黃線偵測（HSV 遮罩）</div>
+          <img id="yellowImg" src="" alt="Yellow" style="width:100%;display:block;aspect-ratio:4/3;object-fit:contain;background:#000">
+          <div class="cam-params" id="yellowHSVParams"></div>
         </div>
-        <div id="lidarInfo" style="color:var(--tx2)">未連線</div>
+        <!-- 白線偵測 -->
+        <div class="color-view-section" style="border-top:1px solid var(--bd)">
+          <div class="vl"><div class="live" id="whiteLive"></div>白線偵測（HSV 遮罩）</div>
+          <img id="whiteImg" src="" alt="White" style="width:100%;display:block;aspect-ratio:4/3;object-fit:contain;background:#000">
+          <div class="cam-params" id="whiteHSVParams"></div>
+        </div>
+      </div>
+      <!-- 右：事件Log sidebar -->
+      <div class="log-sidebar">
+        <div class="vl log-hdr-row"><span>事件紀錄</span><button class="log-clear" onclick="clearLog()">清除</button></div>
+        <div class="log-body" id="logBody"><span style="color:var(--tx2)">等待事件...</span></div>
       </div>
     </div>
   </div>
@@ -163,6 +291,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;heigh
   <div class="bot-btns">
     <button class="btns btn-fetch" onclick="doFetch()">重新載入</button>
     <button class="btns btn-send" onclick="doSend()">全部送出</button>
+    <button class="btns btn-save" onclick="doSave()">💾 儲存參數</button>
   </div>
 </div>
 <div class="toast" id="toast"></div>
@@ -178,7 +307,10 @@ const YOLO_PARAMS = {
 };
 
 const LINE_PARAMS_SLIDER = {
-  Kp:               {lb:"Kp 轉向靈敏度", min:0.001, max:0.02, step:0.001},
+  base_speed:       {lb:"循線速度", min:0.01, max:0.3, step:0.01},
+  Kp:               {lb:"Kp 轉向靈敏度", min:0.0001, max:0.02, step:0.0001},
+  Kd:               {lb:"Kd 微分阻尼", min:0, max:0.01, step:0.0001},
+  wheel_delay:      {lb:"轉向延遲", min:0.0, max:2.0, step:0.05, u:"秒"},
   line_mask_size:   {lb:"遮罩高度（上移=遮更多）", min:0.0, max:0.7, step:0.05, invert:true},
   line_mask_top_w:  {lb:"梯形頂寬（大=側邊不內縮）", min:0.5, max:2.0, step:0.1},
   brightness:       {lb:"亮度", min:-100, max:100, step:5},
@@ -205,11 +337,9 @@ const STAGES = {
     blind_spin_duration_right:{lb:"右轉盲轉",min:0.3,max:4.0,step:0.1,u:"秒"},
   }}]},
   s3:{label:"S3 禁行",icon:"⛔",sections:[{title:"禁行轉彎",params:{
-    approach_duration:        {lb:"前進時間",min:0.5,max:5.0,step:0.5,u:"秒"},
     spin_speed:               {lb:"自轉角速度",min:0.1,max:1.5,step:0.05,u:"rad/s"},
-    turn_linear:              {lb:"轉彎前進速度",min:0.0,max:0.2,step:0.01,u:"m/s"},
-    blind_spin_duration_left: {lb:"左轉盲轉",min:0.3,max:4.0,step:0.1,u:"秒"},
-    blind_spin_duration_right:{lb:"右轉盲轉",min:0.3,max:4.0,step:0.1,u:"秒"},
+    blind_spin_duration_left: {lb:"左轉角度",min:30,max:180,step:5,u:"度"},
+    blind_spin_duration_right:{lb:"右轉角度",min:30,max:180,step:5,u:"度"},
   }}]},
   s4:{label:"S4 障礙",icon:"🪨",sections:[{title:"避障",params:{
     roi_top_ratio:  {lb:"ROI 遮罩比例",min:0.3,max:0.9,step:0.05},
@@ -364,14 +494,24 @@ function buildCamParams(){
   for(const[k,s]of Object.entries(YOLO_PARAMS)){
     yEl.appendChild(mkRow("yolo",k,s,getP("yolo",k)||s.min));
   }
-  // Line sliders
+  // Line sliders（HSV 已移至黃/白線視窗下方）
   const lEl=document.getElementById("lineParams");lEl.innerHTML="";
   for(const[k,s]of Object.entries(LINE_PARAMS_SLIDER)){
     lEl.appendChild(mkRow("line",k,s,getP("line",k)||s.min));
   }
-  // Line HSV groups
-  for(const g of LINE_HSV){
-    lEl.appendChild(mkHSV("line",g.keys,g.label));
+  // 黃線 HSV → yellowHSVParams
+  const yHSVEl=document.getElementById("yellowHSVParams");
+  if(yHSVEl){
+    yHSVEl.innerHTML="";
+    yHSVEl.appendChild(mkHSV("line",["yellow_h_low","yellow_s_low","yellow_v_low"],"黃線 HSV 下界"));
+    yHSVEl.appendChild(mkHSV("line",["yellow_h_high","yellow_s_high","yellow_v_high"],"黃線 HSV 上界"));
+  }
+  // 白線 HSV → whiteHSVParams
+  const wHSVEl=document.getElementById("whiteHSVParams");
+  if(wHSVEl){
+    wHSVEl.innerHTML="";
+    wHSVEl.appendChild(mkHSV("line",["white_h_low","white_s_low","white_v_low"],"白線 HSV 下界"));
+    wHSVEl.appendChild(mkHSV("line",["white_h_high","white_s_high","white_v_high"],"白線 HSV 上界"));
   }
   // 同步校正按鈕狀態
   syncUndistortBtn(params.line ? (params.line.undistort_enabled ?? 1) : 1);
@@ -429,13 +569,20 @@ function srv(){
 }
 async function doConnect(){
   await doFetch();
-  document.getElementById("yoloImg").src=srv()+"/stream/yolo?t="+Date.now();
-  document.getElementById("lineImg").src=srv()+"/stream/line?t="+Date.now();
+  document.getElementById("yoloImg").src   = srv()+"/stream/yolo?t="+Date.now();
+  document.getElementById("lineImg").src   = srv()+"/stream/line?t="+Date.now();
+  document.getElementById("yellowImg").src = srv()+"/stream/yellow?t="+Date.now();
+  document.getElementById("whiteImg").src  = srv()+"/stream/white?t="+Date.now();
+  // SLAM 串流只在 toggle ON 時啟動（toggleLidarSlam 負責設定 src）
+  if (document.getElementById('slamToggleSwitch').checked) {
+    document.getElementById("slamMapImg").src = srv()+"/stream/map?t="+Date.now();
+  }
 }
 async function doFetch(){
   try{
     const r=await fetch(srv()+"/api/params");if(!r.ok)throw new Error(r.statusText);
     params=await r.json();buildCamParams();buildPanels();conn(true);toast("參數已載入！",false);
+    syncEstopStatus();
   }catch(e){conn(false);toast("連線失敗: "+e.message,true)}
 }
 async function doSend(){
@@ -446,29 +593,100 @@ async function doSend(){
   document.getElementById("lastSend").textContent=`送出: ${new Date().toLocaleTimeString()}`;
   if(fail===0)toast(`送出成功 (${ok} stages)`,false);else toast(`${ok} 成功, ${fail} 失敗`,true);
 }
+async function doSave(){
+  try{
+    const r=await fetch(srv()+"/api/save_params",{method:"POST"});
+    if(!r.ok)throw new Error(r.statusText);
+    const d=await r.json();
+    toast("參數已儲存至 tuning_params.json ✓",false);
+    document.getElementById("lastSend").textContent=`儲存: ${new Date().toLocaleTimeString()}`;
+  }catch(e){toast("儲存失敗: "+e.message,true)}
+}
 function conn(ok){isConnected=ok;document.getElementById("dot").classList.toggle("on",ok);document.getElementById("stxt").textContent=ok?"已連線":"未連線"}
 function toast(msg,err){const t=document.getElementById("toast");t.textContent=(err?"❌ ":"✅ ")+msg;t.className="toast show "+(err?"err":"ok");setTimeout(()=>t.className="toast",2500)}
 
 // ============================================================
+//  緊急停止 / 恢復
+// ============================================================
+let _estopActive = false;
+
+async function doEmergencyStop() {
+  try {
+    const r = await fetch(srv() + '/api/emergency_stop', { method: 'POST' });
+    if (!r.ok) throw new Error(r.statusText);
+    _estopActive = true;
+    syncEstopUI();
+    toast('緊急停止！機器人已停車', true);
+  } catch(e) {
+    toast('緊急停止失敗: ' + e.message, true);
+  }
+}
+
+async function doEmergencyResume() {
+  try {
+    const r = await fetch(srv() + '/api/emergency_resume', { method: 'POST' });
+    if (!r.ok) throw new Error(r.statusText);
+    _estopActive = false;
+    syncEstopUI();
+    toast('恢復行駛', false);
+  } catch(e) {
+    toast('恢復失敗: ' + e.message, true);
+  }
+}
+
+function syncEstopUI() {
+  const stopBtn   = document.getElementById('estopBtn');
+  const resumeBtn = document.getElementById('resumeBtn');
+  if (_estopActive) {
+    stopBtn.style.display   = 'none';
+    resumeBtn.style.display = '';
+  } else {
+    stopBtn.style.display   = '';
+    resumeBtn.style.display = 'none';
+  }
+}
+
+// 連線後同步伺服器端緊急停止狀態
+async function syncEstopStatus() {
+  try {
+    const r = await fetch(srv() + '/api/emergency_status');
+    if (r.ok) {
+      const d = await r.json();
+      _estopActive = d.emergency_stop === 1;
+      syncEstopUI();
+    }
+  } catch(e) {}
+}
+
+// ============================================================
 //  關卡控制
 // ============================================================
-async function setStage(n) {
+async function setStage(n, _retry) {
   if (!isConnected) { toast('請先連線', true); return; }
+  const labels = {1:'S1 紅綠燈',2:'S2 路口',3:'S3 禁行',4:'S4 障礙',5:'S5 停車',6:'S6 柵欄',7:'S7 隧道'};
   try {
+    const ctrl = new AbortController();
+    const tid = setTimeout(() => ctrl.abort(), 5000);
     const r = await fetch(srv() + '/api/set_stage', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({stage: n})
+      body: JSON.stringify({stage: n}),
+      signal: ctrl.signal
     });
+    clearTimeout(tid);
     if (!r.ok) throw new Error((await r.json()).error || r.statusText);
     document.querySelectorAll('.stage-btn').forEach(b => {
       b.classList.toggle('active', parseInt(b.dataset.stage) === n);
     });
-    const labels = {1:'S1 紅綠燈',2:'S2 路口',3:'S3 禁行',4:'S4 障礙',5:'S5 停車',6:'S6 柵欄',7:'S7 隧道'};
     document.getElementById('stageStatus').textContent = labels[n] + ' 已啟動';
     toast(`切換到 ${labels[n]}`, false);
   } catch(e) {
-    toast('切換失敗: ' + e.message, true);
+    if (!_retry) {
+      // 逾時或網路錯誤時自動重試一次
+      setTimeout(() => setStage(n, true), 300);
+    } else {
+      toast('切換失敗: ' + e.message, true);
+    }
   }
 }
 
@@ -480,90 +698,83 @@ buildTabs();buildCamParams();buildPanels();
 let latestScan = null;
 let lidarActive = false;
 
-function drawLidar() {
-  const canvas = document.getElementById('lidarCanvas');
+function drawOnCanvas(canvas, rMax, compact) {
   if (!canvas) return;
+  // 同步 canvas 解析度與顯示大小（防模糊）
+  const rect = canvas.getBoundingClientRect();
+  if (rect.width > 0 && (canvas.width !== Math.round(rect.width) || canvas.height !== Math.round(rect.height))) {
+    canvas.width = Math.round(rect.width);
+    canvas.height = Math.round(rect.height);
+  }
   const ctx = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height;
   const cx = W / 2, cy = H / 2;
-  const R = Math.min(cx, cy) - 20;
+  const pad = compact ? 6 : 20;
+  const R = Math.min(cx, cy) - pad;
 
   ctx.fillStyle = '#0b0f19';
   ctx.fillRect(0, 0, W, H);
 
   if (!latestScan) {
     ctx.fillStyle = '#7b8ba5';
-    ctx.font = '13px IBM Plex Mono, monospace';
+    ctx.font = `${compact ? 10 : 13}px IBM Plex Mono, monospace`;
     ctx.textAlign = 'center';
     ctx.fillText('等待光達資料...', cx, cy);
     ctx.textAlign = 'left';
     return;
   }
 
-  const rMax = parseFloat(document.getElementById('lidarRange')?.value || 8);
   const sc = R / rMax;
   const ringStep = rMax <= 4 ? 0.5 : rMax <= 10 ? 1.0 : 2.0;
 
   // 距離環
   for (let r = ringStep; r <= rMax; r += ringStep) {
-    ctx.strokeStyle = '#263048';
-    ctx.lineWidth = 0.5;
-    ctx.beginPath();
-    ctx.arc(cx, cy, r * sc, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.fillStyle = '#4a5568';
-    ctx.font = '9px monospace';
-    ctx.textAlign = 'left';
-    ctx.fillText(r.toFixed(1) + 'm', cx + r * sc + 3, cy - 2);
+    ctx.strokeStyle = '#263048'; ctx.lineWidth = 0.5;
+    ctx.beginPath(); ctx.arc(cx, cy, r * sc, 0, Math.PI * 2); ctx.stroke();
+    if (!compact) {
+      ctx.fillStyle = '#4a5568'; ctx.font = '9px monospace'; ctx.textAlign = 'left';
+      ctx.fillText(r.toFixed(1) + 'm', cx + r * sc + 3, cy - 2);
+    }
   }
 
   // 十字線
-  ctx.strokeStyle = '#1e2a3a';
-  ctx.lineWidth = 0.5;
+  ctx.strokeStyle = '#1e2a3a'; ctx.lineWidth = 0.5;
   ctx.beginPath(); ctx.moveTo(cx, cy - R); ctx.lineTo(cx, cy + R); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(cx - R, cy); ctx.lineTo(cx + R, cy); ctx.stroke();
 
   // 危險距離圈（S4 參數）
   const dz = (params.s4 && params.s4.danger_zone) ? params.s4.danger_zone : 0.35;
-  ctx.strokeStyle = 'rgba(231,76,60,0.7)';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.arc(cx, cy, dz * sc, 0, Math.PI * 2);
-  ctx.stroke();
+  ctx.strokeStyle = 'rgba(231,76,60,0.7)'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(cx, cy, dz * sc, 0, Math.PI * 2); ctx.stroke();
 
   // 前方方向線
-  ctx.strokeStyle = 'rgba(45,156,219,0.4)';
-  ctx.lineWidth = 1;
-  ctx.setLineDash([4, 4]);
-  ctx.beginPath();
-  ctx.moveTo(cx, cy - R);
-  ctx.lineTo(cx, cy);
-  ctx.stroke();
+  ctx.strokeStyle = 'rgba(45,156,219,0.4)'; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
+  ctx.beginPath(); ctx.moveTo(cx, cy - R); ctx.lineTo(cx, cy); ctx.stroke();
   ctx.setLineDash([]);
 
   // 掃描點
   const { ranges, angle_min, angle_increment, range_min, range_max } = latestScan;
   ctx.fillStyle = '#27ae60';
+  const ps = compact ? 1.5 : 1.5;
   for (let i = 0; i < ranges.length; i++) {
     const rng = ranges[i];
     if (rng <= 0 || !isFinite(rng) || rng < range_min || rng > range_max) continue;
     const angle = angle_min + i * angle_increment;
     const px = cx + rng * sc * Math.sin(angle);
-    const py = cy - rng * sc * Math.cos(angle);
-    ctx.fillRect(px - 1.5, py - 1.5, 3, 3);
+    const py = cy + rng * sc * Math.cos(angle);
+    ctx.fillRect(px - ps, py - ps, ps * 2, ps * 2);
   }
 
   // 機器人本體
   ctx.fillStyle = '#2d9cdb';
-  ctx.beginPath();
-  ctx.arc(cx, cy, 5, 0, Math.PI * 2);
-  ctx.fill();
-  // 前方三角
-  ctx.beginPath();
-  ctx.moveTo(cx, cy - 14);
-  ctx.lineTo(cx - 5, cy - 6);
-  ctx.lineTo(cx + 5, cy - 6);
-  ctx.fill();
+  ctx.beginPath(); ctx.arc(cx, cy, compact ? 3 : 5, 0, Math.PI * 2); ctx.fill();
+  const ta = compact ? 8 : 14, ts = compact ? 3 : 5;
+  ctx.beginPath(); ctx.moveTo(cx, cy + ta); ctx.lineTo(cx - ts, cy + ts - 2); ctx.lineTo(cx + ts, cy + ts - 2); ctx.fill();
+}
+
+function drawLidar() {
+  const rMax = parseFloat(document.getElementById('lidarRange')?.value || 8);
+  drawOnCanvas(document.getElementById('lidarCanvas'), rMax, false);
 }
 
 async function pollScan() {
@@ -588,7 +799,7 @@ async function pollScan() {
     }
   }
   drawLidar();
-  setTimeout(pollScan, 100);
+  setTimeout(pollScan, 200);
 }
 
 // ============================================================
@@ -602,8 +813,149 @@ function popout(type) {
   window.open(s + '/popout/' + type, type + '_win', sizes[type] + ',resizable=yes');
 }
 
+// ============================================================
+//  事件 Log 輪詢
+// ============================================================
+let _logCount = 0;
+
+async function pollLog() {
+  try {
+    const r = await fetch(srv() + '/api/logs');
+    if (r.ok) {
+      const logs = await r.json();
+      if (logs.length !== _logCount) {
+        _logCount = logs.length;
+        renderLog(logs);
+      }
+    }
+  } catch(e) {}
+  setTimeout(pollLog, 1000);
+}
+
+function renderLog(logs) {
+  const el = document.getElementById('logBody');
+  if (!el) return;
+  const atBottom = el.scrollHeight - el.scrollTop <= el.clientHeight + 20;
+  el.innerHTML = logs.map(e =>
+    `<div class="log-entry ${e.level||'info'}"><span class="lt">${e.t}</span><span class="lm">${e.msg}</span></div>`
+  ).join('') || '<span style="color:var(--tx2)">等待事件...</span>';
+  if (atBottom) el.scrollTop = el.scrollHeight;
+}
+
+function clearLog() {
+  const el = document.getElementById('logBody');
+  if (el) { el.innerHTML = '<span style="color:var(--tx2)">已清除</span>'; }
+  _logCount = 0;
+}
+
 // 頁面載入後開始輪詢（srv() 空時每 500ms 重試，連線後自動更新）
 pollScan();
+pollLog();
+
+// ── SLAM 地圖點選導航 ────────────────────────────────────
+let slamClickMode = null; // 'start' | 'goal' | null
+
+function setSlamMode(mode) {
+  slamClickMode = (slamClickMode === mode) ? null : mode; // toggle
+  const btnStart = document.getElementById('slamBtnStart');
+  const btnGoal  = document.getElementById('slamBtnGoal');
+  const hint     = document.getElementById('slamModeHint');
+  const img      = document.getElementById('slamMapImg');
+  if (btnStart) {
+    btnStart.style.background  = (slamClickMode === 'start') ? 'rgba(0,204,0,0.2)' : 'transparent';
+    btnStart.style.fontWeight  = (slamClickMode === 'start') ? '700' : '400';
+    btnStart.style.boxShadow   = (slamClickMode === 'start') ? '0 0 6px #0c0' : 'none';
+  }
+  if (btnGoal) {
+    btnGoal.style.background   = (slamClickMode === 'goal')  ? 'rgba(204,204,0,0.2)' : 'transparent';
+    btnGoal.style.fontWeight   = (slamClickMode === 'goal')  ? '700' : '400';
+    btnGoal.style.boxShadow    = (slamClickMode === 'goal')  ? '0 0 6px #cc0' : 'none';
+  }
+  if (img) img.style.cursor = slamClickMode ? 'crosshair' : 'default';
+  if (hint) {
+    hint.textContent =
+      slamClickMode === 'start' ? '⬤ 點擊地圖設定起點（綠圓）' :
+      slamClickMode === 'goal'  ? '★ 點擊地圖設定終點（黃星）' :
+                                  '點擊地圖設定起點/終點';
+    hint.style.color = slamClickMode === 'start' ? '#0c0' :
+                       slamClickMode === 'goal'  ? '#cc0' : 'var(--tx2)';
+  }
+}
+
+function onSlamMapClick(e) {
+  if (!slamClickMode) return;
+  const img  = e.currentTarget;
+  const rect = img.getBoundingClientRect();
+  // 將顯示像素換算成渲染圖像素（後端 scale 以渲染圖像素為基準）
+  const natW = img.naturalWidth  || img.clientWidth;
+  const natH = img.naturalHeight || img.clientHeight;
+  const px = Math.round((e.clientX - rect.left) * (natW / rect.width));
+  const py = Math.round((e.clientY - rect.top)  * (natH / rect.height));
+  const endpoint = slamClickMode === 'start' ? '/api/slam/set_start' : '/api/slam/set_exit';
+  fetch(srv() + endpoint, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({x: px, y: py})
+  }).then(r => r.json()).then(d => {
+    if (d.error) { toast(d.error, true); return; }
+    const label = slamClickMode === 'start' ? '起點已設定' : '終點已設定';
+    toast(label + ` [${d.grid[0]}, ${d.grid[1]}]`, false);
+    setSlamMode(null);
+  }).catch(err => toast('點選失敗: ' + err.message, true));
+}
+
+// ── 光達/SLAM 切換 ──────────────────────────────────────
+function toggleLidarSlam() {
+  const isSlam = document.getElementById('slamToggleSwitch').checked;
+  const lidarView = document.getElementById('lidarView');
+  const slamView  = document.getElementById('slamView');
+  const title     = document.getElementById('lidarSlamTitle');
+  const live      = document.getElementById('lidarLive');
+  const lidarPop  = document.getElementById('lidarPopbtn');
+  const slamPop   = document.getElementById('slamPopbtn');
+
+  if (isSlam) {
+    lidarView.style.display = 'none';
+    slamView.style.display  = '';
+    title.textContent = 'SLAM 地圖';
+    live.style.background = 'var(--acc)';
+    lidarPop.style.display = 'none';
+    slamPop.style.display  = '';
+    // 首次切換時啟動串流
+    const img = document.getElementById('slamMapImg');
+    if (img && !img.src.includes('/stream/map')) {
+      img.src = srv() + '/stream/map?t=' + Date.now();
+    }
+  } else {
+    lidarView.style.display = '';
+    slamView.style.display  = 'none';
+    title.textContent = '光達掃描';
+    live.style.background = lidarActive ? 'var(--grn)' : 'var(--red)';
+    lidarPop.style.display = '';
+    slamPop.style.display  = 'none';
+    setSlamMode(null);
+  }
+}
+
+function clearSlamPoints() {
+  fetch(srv() + '/api/slam/clear_start', {method: 'POST'});
+  fetch(srv() + '/api/slam/clear_exit',  {method: 'POST'});
+  setSlamMode(null);
+  toast('起點/終點已清除', false);
+}
+
+function loadTunnelMap() {
+  fetch(srv() + '/api/slam/load_map', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({name: 'tunnel_map'})
+  }).then(r => r.json()).then(d => {
+    if (d.error) { toast('找不到 tunnel_map，請先儲存一次', true); return; }
+    toast('地圖已載入（離線模式）', false);
+    const img = document.getElementById('slamMapImg');
+    if (img) img.src = srv() + '/stream/map?t=' + Date.now();
+  }).catch(err => toast('載入地圖失敗: ' + err.message, true));
+}
 </script>
 </body>
 </html>
